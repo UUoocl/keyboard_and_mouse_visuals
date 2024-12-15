@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Boiler Plate</title>
+</head>
+
+<body>
+    <p>A blank page that includes scripts to connect to the OBS websocket server</p>
+    
+    <script src="obs_webSocket_details/websocketDetails.js"></script>
+    <script src="obs_webSocket_details/obs-ws.js"></script>
+    <script src="obs_webSocket_details/obsConnect.js"></script>
+  <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
+
+  <script>
+    const obs = new OBSWebSocket();
+    wsConnect();
+    
+    async function wsConnect() 
+      {  
+        await connectOBS(obs);
+      }
+
+  </script>
+</body>
+
+</html>
