@@ -22,6 +22,8 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 2. Keyboard and Mouse events trigger an Advanced Scene Switcher macro that displays the event data in a Text Source.  
 3. A Browser Source with javaScript listens for update, and renders visualization
 
+![image](https://github.com/user-attachments/assets/8336e25f-2731-449c-a2f5-56f463d57a16)
+
 ## Required Software
 
 [OBS](https://obsproject.com/) and the following plug-ins are required.
@@ -34,7 +36,6 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 - [Stroke Glow Shadow](https://obsproject.com/forum/resources/stroke-glow-shadow.1800/)
 
 
-![image](https://github.com/user-attachments/assets/8336e25f-2731-449c-a2f5-56f463d57a16)
 ## Getting started
 
 ### Download this repository
@@ -55,6 +56,7 @@ OBS includes a webSocket server.  The webSocket server will allow the Browser So
 2. check the "Enable WebSocket server" setting
 
 ![image](https://github.com/user-attachments/assets/7cfc0075-b39e-47d7-8686-044d9426e216)
+
 5. Click the "Show Connect Info Button" to get the WebSocket Server Password.
 6. Navigate to the folder where extracted the "keyboard and mouse visuals" are saved. 
 7. open the file /browser_Sources/obs_webSocket_details/websocketDetails.js
