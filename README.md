@@ -6,6 +6,7 @@
   - [Import Scene Collection](#import-scene-collection)
   - [User Interface.](#user-interface)
   - [Create your own Visualization](#create-your-own-visualization)
+  - [Examples](#examples)
 
 
 # keyboard and mouse visuals
@@ -30,7 +31,7 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 - [Advanced Scene Switcher](https://github.com/WarmUpTill/SceneSwitcher/releases)
 - [Move Transition](https://obsproject.com/forum/resources/move.913/)
 - [Source Dock](https://obsproject.com/forum/resources/source-dock.1317/)
-- [Source Copy](https://obsproject.com/forum/resources/source-copy.1261/)
+- [Source Clone](https://obsproject.com/forum/resources/source-clone.1632/)
 - [Advanced Masks](https://obsproject.com/forum/resources/advanced-masks.1856/)
 - [Composite Blur](https://obsproject.com/forum/resources/composite-blur.1780/)
 - [Stroke Glow Shadow](https://obsproject.com/forum/resources/stroke-glow-shadow.1800/)
@@ -40,11 +41,10 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 
 ### Download this repository
 1. After installing the OBS and the requisite plug-ins, download [this](https://github.com/UUoocl/keyboard_and_mouse_visuals) repository. 
-![[Pasted image 20241216121453.png]
 
 ![image](https://github.com/user-attachments/assets/6cfc3b41-d711-4b84-9618-c51fe3826b2b)
 
-2. Extract the .zip download
+1. Extract the .zip download
 
 ### Turn on the OBS WebSocket Server
 
@@ -59,10 +59,11 @@ OBS includes a webSocket server.  The webSocket server will allow the Browser So
 
 5. Click the "Show Connect Info Button" to get the WebSocket Server Password.
 6. Navigate to the folder where extracted the "keyboard and mouse visuals" are saved. 
-7. open the file /browser_Sources/obs_webSocket_details/websocketDetails.js
+7. Open the file /browser_Sources/obs_webSocket_details/websocketDetails.js
 	a. Use a Text Editor, like [VS Code](https://code.visualstudio.com/), to open the file.  
-6. enter the WebSocket Server Password.
+6. Enter the WebSocket Server Password.
 	a. enter the password after "PW":" 
+7. Save the change to "websocketDetails.js"
 ### Import Scene Collection
 
 Use the file "Key_and_Mouse_Visuals_Collection.json" to configure OBS .
@@ -70,7 +71,7 @@ Use the file "Key_and_Mouse_Visuals_Collection.json" to configure OBS .
 
 ![image](https://github.com/user-attachments/assets/35d4b1e7-dbf1-4e11-b617-5adec4d180e4)
 
-- navigate to the file "Key_and_Mouse_Visuals_Collection.json"
+- navigate to the file "Key_and_Mouse_Visuals_Collection.json", in the downloaded folder.
 - Change to the imported Scene Collection. "Scene Collection --> Key_and_Mouse_Visuals_Collection"
 
 
@@ -81,3 +82,18 @@ The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mous
 
 
 ### Create your own Visualization
+    The repo includes starter template to 
+     - replace mouse input with eventListeners
+     - add OBS WebSocket connection.  
+
+### Examples
+ - Key overlay 
+   - [Space Type Generator](https://www.kielm.com/) "Stripes" by [Kiel Mutschelknaus](https://www.kielm.com/) 
+ - Mouse overlay
+   - P5 js
+     - [soft body example](https://p5js.org/examples/math-and-physics-soft-body/)
+   - cables.gl 
+     - [Fast Fluid V2](https://cables.gl/p/J9WzcP)
+       - [modified for OBS WebSocket Input](https://cables.gl/p/Z14eIm) 
+     - [Procedural 2d fish](https://cables.gl/p/ocCn6p)
+       - [modified for OBS WebSocket Input](https://cables.gl/p/JQjuZp)
