@@ -88,7 +88,7 @@ The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mous
 
 ## Examples
  - Key overlay 
-   - [Space Type Generator](https://www.kielm.com/) "Stripes" by [Kiel Mutschelknaus](https://www.kielm.com/) 
+   - [Space Type Generator](https://spacetypegenerator.com/stripes) "Stripes" by [Kiel Mutschelknaus](https://www.kielm.com/) 
  - Mouse overlay
    - P5 js
      - [soft body example](https://p5js.org/examples/math-and-physics-soft-body/)
