@@ -7,6 +7,7 @@
   - [User Interface.](#user-interface)
   - [Create your own Visualization](#create-your-own-visualization)
 - [Examples](#examples)
+- [Learn javaScript](#learn-javascript)
 
 
 # keyboard and mouse visuals
@@ -74,12 +75,10 @@ Use the file "Key_and_Mouse_Visuals_Collection.json" to configure OBS .
 - navigate to the file "Key_and_Mouse_Visuals_Collection.json", in the downloaded folder.
 - Change to the imported Scene Collection. "Scene Collection --> Key_and_Mouse_Visuals_Collection"
 
-
 ### User Interface. 
 
 The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mouse Follow and Zoom controls allow switching the scene view.   
 ![image](https://github.com/user-attachments/assets/1c68fcd3-7aaf-4a3e-81c0-17e333f6941a)
-
 
 ### Create your own Visualization
     The repo includes starter template to 
@@ -87,6 +86,7 @@ The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mous
      - add OBS WebSocket connection.  
 
 ## Examples
+Attribution for the examples used in this repo
  - Key overlay 
    - [Space Type Generator](https://spacetypegenerator.com/stripes) "Stripes" by [Kiel Mutschelknaus](https://www.kielm.com/) 
  - Mouse overlay
@@ -97,3 +97,9 @@ The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mous
        - [modified for OBS WebSocket Input](https://cables.gl/p/Z14eIm) 
      - [Procedural 2d fish](https://cables.gl/p/ocCn6p)
        - [modified for OBS WebSocket Input](https://cables.gl/p/JQjuZp)
+  
+## Learn javaScript
+Recommendations for learning javascript with a creative coding approach
+- https://thecodingtrain.com/
+- https://www.pattvira.com/
+- [Intro to Cables GL](https://www.youtube.com/playlist?list=PLYimpE2xWgBveaPOiV_2_42kZEl_1ExB0)
