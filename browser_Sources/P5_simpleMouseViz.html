@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Simple Mouse Visualization</title>
+</head>
+
+<body>
+        
+    <script src="obs_webSocket_details/websocketDetails.js"></script>
+    <script src="obs_webSocket_details/obs-ws.js"></script>
+    <script src="obs_webSocket_details/obsConnect.js"></script>
+    <script src="lib/p5.js"></script>
+    <script src="js/simpleMouseViz.js"></script>
+
+  <script>
+    const obs = new OBSWebSocket();
+    wsConnect();
+    
+    async function wsConnect() 
+      {  
+        await connectOBS(obs);
+      }
+  </script>
+  
+  <script>
+    obs.on("InputSettingsChanged", async function (event) {
+      switch (event.inputName) {
+        case 'cursor':
+          mousePosition = event.inputSettings.text.split(" ");
+          mousePosX = Number(mousePosition[0])
+          mousePosY = Number(mousePosition[1])
+          break;
+        case 'hotkeyText':
+          break;
+        default:
+          break;
+      }
+    })
+  </script>
+</body>
+
+</html>

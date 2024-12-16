@@ -7,22 +7,39 @@
 </head>
 
 <body>
-    <p>A blank page that includes scripts to connect to the OBS websocket server</p>
-    
-    <script src="obs_webSocket_details/websocketDetails.js"></script>
-    <script src="obs_webSocket_details/obs-ws.js"></script>
-    <script src="obs_webSocket_details/obsConnect.js"></script>
+  <p>A blank page that includes scripts to connect to the OBS websocket server</p>
+
+  <script src="obs_webSocket_details/websocketDetails.js"></script>
+  <script src="obs_webSocket_details/obs-ws.js"></script>
+  <script src="obs_webSocket_details/obsConnect.js"></script>
+
+  <!-- <script src="lib/p5.js"></script> -->
   <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
 
-  <script>
+
+  <script id="connect to OBS">
     const obs = new OBSWebSocket();
     wsConnect();
-    
-    async function wsConnect() 
-      {  
-        await connectOBS(obs);
-      }
 
+    async function wsConnect() {
+      await connectOBS(obs);
+    }
+  </script>
+
+  <script id="mousePositionInput">
+    obs.on("InputSettingsChanged", async function (event) {
+      switch (event.inputName) {
+        case 'cursor':
+          mousePosition = event.inputSettings.text.split(" ");
+          mousePosX = Number(mousePosition[0])
+          mousePosY = Number(mousePosition[1])
+          break;
+        case 'hotkeyText':
+          break;
+        default:
+          break;
+      }
+    })
   </script>
 </body>
 
