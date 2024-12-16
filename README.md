@@ -6,7 +6,7 @@
   - [Import Scene Collection](#import-scene-collection)
   - [User Interface.](#user-interface)
   - [Create your own Visualization](#create-your-own-visualization)
-  - [Examples](#examples)
+- [Examples](#examples)
 
 
 # keyboard and mouse visuals
@@ -86,7 +86,7 @@ The Source Dock Plug-in is used to display the Keyboard and Mouse  values.  Mous
      - replace mouse input with eventListeners
      - add OBS WebSocket connection.  
 
-### Examples
+## Examples
  - Key overlay 
    - [Space Type Generator](https://www.kielm.com/) "Stripes" by [Kiel Mutschelknaus](https://www.kielm.com/) 
  - Mouse overlay
