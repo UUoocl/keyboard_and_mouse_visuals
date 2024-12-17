@@ -37,19 +37,20 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 - [Composite Blur](https://obsproject.com/forum/resources/composite-blur.1780/)
 - [Stroke Glow Shadow](https://obsproject.com/forum/resources/stroke-glow-shadow.1800/)
 
-> [!NOTE] macOS Installing plug-in note:
+> [!NOTE] 
+> 
+> macOS Installing plug-in note:
 >  1. After Downloading a plug-in, expand the .zip file and in the expanded folder click to open the installer for your Mac.
 >  2. A warning will appear that Apple could not verify the plug-in.  Click the "Done" button
 >   
->   <img width="253" alt="image" src="https://gist.github.com/user-attachments/assets/449964ee-607d-4480-a68c-c399c13327a2" />
+> <img width="253" alt="image" src="https://gist.github.com/user-attachments/assets/449964ee-607d-4480-a68c-c399c13327a2" />
 >    
 > 3. Go to System Settings, 
 >    1. choose Privacy & Security settings. 
 >    2. scroll to the bottom of the settings page.
 >    3. click "Open Anyway" 
 >  
-><img width="708" alt="image" src="https://gist.github.com/user-attachments/assets/aa2f2d72-4356-413c-8a50-8e97a4e4f233" />
-
+> <img width="708" alt="image" src="https://gist.github.com/user-attachments/assets/aa2f2d72-4356-413c-8a50-8e97a4e4f233" />
 
 ## Getting started
 
