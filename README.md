@@ -50,9 +50,9 @@ The examples in this repository feature [P5.js](https://p5js.org/) and [Cables.g
 >    3. click "Open Anyway" 
 >  
 
-![alt text](https://github-production-user-asset-6210df.s3.amazonaws.com/99063397/396295737-4c50f5c8-0c38-4168-a062-d209f7cd4715.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T011619Z&X-Amz-Expires=300&X-Amz-Signature=43f7aa025ed8560da5cb72d9bc0392c7c783b5b3c48159a008bc50459261b72b&X-Amz-SignedHeaders=host)
+![image](https://gist.github.com/user-attachments/assets/449964ee-607d-4480-a68c-c399c13327a2)
 
-![alt text](https://github-production-user-asset-6210df.s3.amazonaws.com/99063397/396295737-4c50f5c8-0c38-4168-a062-d209f7cd4715.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T011619Z&X-Amz-Expires=300&X-Amz-Signature=43f7aa025ed8560da5cb72d9bc0392c7c783b5b3c48159a008bc50459261b72b&X-Amz-SignedHeaders=host)
+![image](https://gist.github.com/user-attachments/assets/aa2f2d72-4356-413c-8a50-8e97a4e4f233)
 
 ## Getting started
 
@@ -93,7 +93,7 @@ Use the file "Key_and_Mouse_Visuals_Collection.json" to configure OBS .
 
 - OBS will ask where the local webpages are located.  
 
-![alt text](https://github-production-user-asset-6210df.s3.amazonaws.com/99063397/396295737-4c50f5c8-0c38-4168-a062-d209f7cd4715.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T011619Z&X-Amz-Expires=300&X-Amz-Signature=43f7aa025ed8560da5cb72d9bc0392c7c783b5b3c48159a008bc50459261b72b&X-Amz-SignedHeaders=host)
+<img width="660" alt="image" src="https://gist.github.com/user-attachments/assets/4c50f5c8-0c38-4168-a062-d209f7cd4715" />
 
   - click the "Search Directory..." button
   - navigate to where this repo is saved on your computer.
