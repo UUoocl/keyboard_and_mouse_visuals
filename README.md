@@ -48,14 +48,15 @@ The examples in this repository feature the javaScript libraries [P5.js](https:/
 >  1. After Downloading a plug-in, expand the .zip file and in the expanded folder click to open the installer for your Mac.
 >  2. A warning will appear that Apple could not verify the plug-in.  Click the "Done" button
 >
-><img src="https://gist.github.com/user-attachments/assets/449964ee-607d-4480-a68c-c399c13327a2" width="250">
+>![image](https://github.com/user-attachments/assets/ceef4d62-0e3c-4fd8-9faf-14099fda2c78)
 >
 >3. Go to System Settings, 
 >    1. choose Privacy & Security settings. 
 >    2. scroll to the bottom of the settings page.
 >    3. click "Open Anyway" 
 >
-> <img src="https://gist.github.com/user-attachments/assets/aa2f2d72-4356-413c-8a50-8e97a4e4f233" width="350">
+> ![image](https://github.com/user-attachments/assets/e0c393c0-0302-41ac-9ed6-7ceb22f796e7)
+> 
 
 ## Getting started
 
@@ -99,7 +100,7 @@ Use the file "Key_and_Mouse_Visuals_Collection.json" to configure OBS .
 
 - OBS will ask where the local webpages are located.  
 
-<img width="660" alt="image" src="https://gist.github.com/user-attachments/assets/4c50f5c8-0c38-4168-a062-d209f7cd4715" />
+![image](https://github.com/user-attachments/assets/22dd38fa-7db9-4975-adb0-294c846f9e7a)
 
   - click the "Search Directory..." button
   - navigate to where this repo is saved on your computer.
