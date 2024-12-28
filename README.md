@@ -17,6 +17,8 @@
 Use javaScript to Visualize keyboard and mouse input in OBS.  
 Create graphics to highlight mouse position and Key presses.  
 
+https://github.com/user-attachments/assets/9dfd0b99-edd9-4c4d-908e-b9d4e7016307
+
 If your learning to code to make art, use OBS to share your creative expressions through live streams, online meetings or recordings. 
 
 The examples in this repository feature the javaScript libraries [P5.js](https://p5js.org/) and [Cables.gl](https://cables.gl/). Both are free and open source tools for making beautiful interactive content.
