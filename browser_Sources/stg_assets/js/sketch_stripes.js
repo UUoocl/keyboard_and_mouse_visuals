@@ -42,12 +42,12 @@ var gifStart, gifEnd;
 var gifRecord = false;
 var canvas;
 
-var capturer = new CCapture( {
-     framerate: 60,
-     format:'gif',
-     workersPath: 'js/',
-    verbose: true
-} );
+// var capturer = new CCapture( {
+//      framerate: 60,
+//      format:'gif',
+//      workersPath: 'js/',
+//     verbose: true
+// } );
 
 function preload() {
   font = loadFont('stg_assets/font/IBMPlexMono-Regular.otf');

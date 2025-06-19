@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8'>
+    <title>OBS Keyboard and Mouse Overlay</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <!-- <link rel='stylesheet' type='text/css' media='screen' href='main.css'> -->
+</head>
+
+<link href="lib/style.css" rel="stylesheet" type="text/css" />
+<body>
+    <article class="contents">
+        <h1>OBS Keyboard and Mouse Overlay</h1>
+        <h4>An OBS collection to demonstrate keyboard and mouse graphics</h4>
+
+        <section>
+            <div>
+                <h3>Open OBS</h3>
+                <form class="form-grid" id="obsData">
+                    <label for="configName">Enter a configuration name:</label>
+                    <input type="text" id="configName" name="configName" list="configNameValues"
+                        placeholder="UUinsome" />
+                    <datalist id="configNameValues">
+
+                    </datalist>
+                    <label for="obsName" id="obsNameLabel">Enter OBS app name:</label>
+                    <input type="text" id="obsName" name="obsName" value="OBS" />
+                    <label for="profileName">Enter OBS Profile name:</label>
+                    <input type="text" id="profileName" name="profileName" value="720vc" />
+                    <label for="collectionName">Enter OBS Collection name:</label>
+                    <input type="text" id="collectionName" name="collectionName" value="UUinsome" />
+                    <label for="IP">Enter IP address or "localhost":</label>
+                    <input type="text" id="IP" name="IP" value="localhost" disabled/>
+                    <label for="Port">Enter Port Number:</label>
+                    <input type="text" id="Port" name="Port" value="4455" />
+                    <label for="PW">Enter Password:</label>
+                    <input type="password" id="PW" name="PW" value="" />
+                    <label for="virtualCameraOn">Start Virtual Camera:</label>
+                    <input type="checkbox" id="virtualCameraOn" name="virtualCameraOn" disabled unchecked />
+                    <label for="Debug">Debug mode:</label>
+                    <input type="checkbox" id="Debug" name="Debug" />
+                    <p></p><div id="openOBSbutton">
+                        <input class="form-button" type="button" value="Open OBS" />
+                    </div>
+                </form>
+
+                <div><button id="copyCommand">Copy Command</button><input type="text" id="obsOpenCommand"/></div>
+            </div>
+        </section>
+        
+        <section>
+            <div id="srvr">
+                <h3>Connect to the OBS WebSocket Server</h3>
+                <form class="form-grid">
+                    <p></p><input class="form-button" type="button" id="WSconnectButton" value="Connect" />
+                </form>
+            </div>
+        </section>
+    </article>
+
+    <script src='lib/obs-ws.js'></script>
+    <script src='lib/obsOpen.js'></script>
+
+    <script>
+        window.addEventListener("load", (event) => {
+            console.log("page is fully loaded");
+            if (localStorage.getItem("wssDetails")) {
+                const wssDetails = JSON.parse(window.localStorage.getItem('wssDetails'))
+                document.getElementById("IP").value = wssDetails?.IP;
+                document.getElementById("Port").value = wssDetails?.PORT;
+                document.getElementById("PW").value = wssDetails?.PW;    
+            }
+
+            //add button event listeners
+            document
+                .getElementById("configName")
+                .addEventListener('change', configSelected);
+
+            document
+                .getElementById("openOBSbutton")
+                .addEventListener('click', openOBS);
+
+            document
+                .getElementById("obsData")
+                .addEventListener('change', obsLaunchCommand);
+
+            document
+                .getElementById("copyCommand")
+                .addEventListener('click', (e) => {
+                    console.log(e)
+                    copyCode(e.target.id, "obsOpenCommand", e.target.innerText)});
+
+            document
+                .getElementById("WSconnectButton")
+                .addEventListener("click", wsConnect);
+
+            obsLaunchCommand();
+        })
+
+        //button functions            
+        function openOBS() {
+            let uuinsomeHREF = window.location.href;
+            // "path":"${uuinsomeHREF}",
+            let inputArray = JSON.stringify(`{"obsName":"${document.getElementById("obsName").value}","profileName":"${document.getElementById("profileName").value}","collectionName":"${document.getElementById("collectionName").value}","ip":"${document.getElementById("IP").value}","port":"${document.getElementById("Port").value}","password":"${document.getElementById("PW").value}"}`)
+            console.log(inputArray)
+            if (document.getElementById("Debug").checked) {
+                window.open(`shortcuts://run-shortcut?name=INPUT-Open_OBS_Profile-Collection-WebSocket-DEBUG&input=text&text=${inputArray}`, "_self");
+            } else {
+                window.open(`shortcuts://run-shortcut?name=INPUT-Open_OBS_Profile-Collection-WebSocket&input=text&text=${inputArray}`, "_self");
+            }
+        }
+        
+        obs.on("Identified", async (data) => {
+            console.log("OBS WebSocket successfully identified", data);
+    
+            document.getElementById("WSconnectButton").style.background = "#00ff00";
+    
+            //send websocket server connection details to OBS browser sources
+            const wssDetails = JSON.parse(window.localStorage.getItem('wssDetails'))
+            console.log(wssDetails);
+    
+            await obs.call("CallVendorRequest", {
+                vendorName: "obs-browser",
+                requestType: "emit_event",
+                requestData: {
+                    event_name: "ws-details",
+                    event_data: { wssDetails },
+                },
+            });
+        });
+    </script>
+    </body>
+</html>
+

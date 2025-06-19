@@ -41,26 +41,39 @@
 <body>
     <canvas id="glcanvas" width="100vw" height="100vh" tabindex="1"></canvas>
 
-    <script src="obs_webSocket_details/websocketDetails.js"></script>
-    <script src="obs_webSocket_details/obs-ws.js"></script>
-    <script src="obs_webSocket_details/obsConnect.js"></script>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
     <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
   
     <script>
-      const obs = new OBSWebSocket();
-      wsConnect();
-      
-      async function wsConnect() 
-        {  
-          await connectOBS(obs);
+      let viewMode, mouseBoundary;
+      let outMinX = 144, outMaxX = 1776;
+      let outMinY = 80, outMaxY = 1000;
+      let inMinX, inMaxX;
+      let inMinY, inMaxY;
+
+      window.addEventListener(`mouseBoundary`, async function (event) {
+        //event wss details
+        console.log("message received: ", event)
+        if (event.detail.hasOwnProperty('mouseBoundary')) {
+          mouseBoundary = event.detail.mouseBoundary;
+          inMinX = mouseBoundary.mouseBoundaryLeft; 
+          inMaxX = mouseBoundary.mouseBoundaryRight;
+          inMinY = mouseBoundary.mouseBoundaryTop
+          inMaxY = mouseBoundary.mouseBoundaryBottom;
         }
-        
-        obs.on("InputSettingsChanged", async function (event) {
-            //console.log(event);
-            switch (event.inputName) {
-                case 'cursor':
-                    //document.getElementById("obsws-mouse").innerHTML = event.inputSettings.text
-                    const mouseCoordinates = event.inputSettings.text.split(' ')
+      })
+
+      obs.on("InputSettingsChanged", async function (event) {
+          //console.log(event);
+          switch (event.inputName) {
+              case 'cursor':
+                  //document.getElementById("obsws-mouse").innerHTML = event.inputSettings.text
+                  const mouseCoordinates = event.inputSettings.text.split(' ')
+                  if(viewMode === 'zoomAndFollowMouse'){
+                    mouseCoordinates[0] = ((mouseCoordinates[0] - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
+                    mouseCoordinates[1] = ((mouseCoordinates[1] - inMinY) * (outMaxY - outMinY)) / (inMaxY - inMinY) + outMinY;
+                  }
                     console.log(mouseCoordinates);
                     
                     if (mouseCoordinates) {
@@ -91,6 +104,9 @@
                     break;
                 case 'hotkeyText':
                     //document.getElementById("obsws-keyboard").innerHTML = event.inputSettings.text
+                    break;
+                case 'view mode':
+                    viewMode = event.inputSettings.text;
                     break;
                 default:
                     break;

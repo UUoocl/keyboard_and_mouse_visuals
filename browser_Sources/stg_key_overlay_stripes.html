@@ -62,11 +62,9 @@
       </div> -->
 
     </div>
-    <script src="obs_webSocket_details/websocketDetails.js"></script>
-    <script src="obs_webSocket_details/obs-ws.js"></script>
-    <script src="obs_webSocket_details/obsConnect.js"></script>
-    <script src="obs_webSocket_details/startConnection.js"></script>
-  
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+   
     <script>
       var timer
       obs.on("InputSettingsChanged", async function (event) {
@@ -75,8 +73,8 @@
           case 'cursor':
             break;
           case 'hotkeyText':
-            console.log(event);
             if (event.inputSettings.text.includes('+')) {
+              //console.log(event);
               notSoWeird(event.inputSettings.text);
               timer = 3;
             }

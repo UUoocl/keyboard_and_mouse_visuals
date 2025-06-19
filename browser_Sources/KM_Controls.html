@@ -119,27 +119,17 @@
 <body>
     <div id="buttons"></div>
     <script src="lib/p5.js" id="P5_library"></script>
-    
-    <script src="obs_webSocket_details/websocketDetails.js" id="obsWebsocketDetails"></script>
-    <script src="obs_webSocket_details/obs-ws.js" id="obsWebsocketLibrary"></script>
-    <script src="obs_webSocket_details/obsConnect.js" id="obsWebsocketConnect"></script>
+    <script src="lib/obs-ws.js" id="obsWebsocketLibrary"></script>
+    <script src="js/obsConnect.js" id="obsWebsocketConnect"></script>
     <script src="js/hotkeyConfig.js" id="uuhimsy_hotkey_config"></script>
     <script src="js/SceneForeground_class.js"></script>
-    <!-- <script src="obs_webSocket_details/startConnection.js"></script> -->
      <script id="Control_init">
-        const obs = new OBSWebSocket();
-            wsConnect();
-
-            async function wsConnect() {
-                await connectOBS(obs)
-                //Initialize uuhimsy controls after connecting to websocket server
-                .then(async() => {loadButtons();})
-                .then(async() => {
-                    currentScene = await obs.call("GetCurrentProgramScene")
-                    currentScene = currentScene.sceneName;
-                    findForegroundSource(currentScene)
-                })    
-            }
+        obs.on("Identified", async () => {
+            loadButtons()
+            currentScene = await obs.call("GetCurrentProgramScene")
+            currentScene = currentScene.sceneName;
+            findForegroundSource(currentScene)
+        });
      </script>
 
     <script id="createButtons">
@@ -150,20 +140,12 @@
         function loadButtons(){
             //Create Screen Share Buttons
             buttons[i===0?0:i+=1] = createButton(`Screen Share Controls`).position(0, (i===0 ? 0:buttonPadding+15+(buttons[i-1].y+buttons[i-1].elt.offsetHeight))).class('button l blue uuhimsy')//.mousePressed(()=>{obsGoToScene('scene|||Screen Share')})
-
             buttons[i+=1] = createButton(`Full Screen (${fullScreen_HK})`).position(0, (buttonPadding+(buttons[i-1].y+buttons[i-1].height))).class('button l').mousePressed(()=>fullScreen())
-            
             buttons[i+=1] = createButton(`Follow Mouse (${followMouse_HK})`).position(0, buttonPadding+(buttons[i-1].y+buttons[i-1].height)).class('button l').mousePressed(()=>followMouse(mouseCoordinates))
-            
             buttons[i+=1] = createButton(`Follow Mouse and Zoom (${followMouseAndZoom_HK})`).position(0, buttonPadding+(buttons[i-1].y+buttons[i-1].height)).class('button l').mousePressed(()=>zoomAndFollowMouse(mouseCoordinates))
-            
             buttons[i+=1] = createButton(`Mouse Overlay Toggle (${toggleMouse_HK})`).position(0, buttonPadding+(buttons[i-1].y+buttons[i-1].height)).class('button l').mousePressed(()=>toggleSource('scene|||Screen Share','Input Mouse Overlay'))
-            
             buttons[i+=1] = createButton(`Hotkey Overlay Toggle (${toggleHotkey_HK})`).position(0, buttonPadding+(buttons[i-1].y+buttons[i-1].height)).class('button l').mousePressed(()=>toggleSource('scene|||Screen Share','Input Hotkeys'))
-        
-        
             buttons[i===0?0:i+=1] = createButton(`clear hotkey text`).position(0, (i===0 ? 0:buttonPadding+15+(buttons[i-1].y+buttons[i-1].height))).class('button negative l').mousePressed(()=>{hotkeyUpdate(" ")})
-            
             buttons[i+=1] = createButton(`Refresh Browsers 🔄 (${refreshOBSbrowsers_HK})`).position(0, (buttonPadding+(buttons[i-1].y+buttons[i-1].height))).class('button negative l').mousePressed(()=>refreshOBSbrowsers())
         }
 
@@ -274,7 +256,7 @@
                         fullScreen();
                         break;
                     case toggleMouse_HK:
-                        toggleSource('Comp SceneMouse','BrowserMouseOverlay')
+                        toggleSource('scene|||Screen Share','Input Mouse Overlay')
                         break;
                     case toggleHotkey_HK:
                         toggleSource('scene|||Screen Share','Input Hotkeys')
@@ -288,7 +270,7 @@
 
     <script id="ShareScreenVariables">
 
-        var currentScene, currentForegroundSource, sceneForegrounds={};
+        let currentScene, currentForegroundSource, sceneForegrounds={};
     //On scene change get the Current Scene Source where the name include 'Foreground'
         obs.on("CurrentProgramSceneChanged", async (event) => {
             currentScene = event.sceneName; 
@@ -296,6 +278,7 @@
         })
         
         async function findForegroundSource(scene){
+            console.log(scene)
         //get all the sources in the current scene
             let sceneSources = await obs.call("GetSceneItemList", { sceneName: `${scene}` });
             currentForegroundSource = sceneSources.sceneItems.find(item => item.sourceName.includes("Foreground"))
@@ -309,7 +292,7 @@
             } 
         }
         
-        var viewMode = 'full screen', 
+        let viewMode = 'full screen', 
         mouseX,
         mouseY,
         mouseCoordinates = [0,0],
@@ -334,6 +317,13 @@
         //full screen
         function fullScreen() {
             viewMode = 'fullScreen';
+
+                        obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
             sceneForegrounds[currentScene]["viewMode"] = 'fullScreen'
             obs.call('SetSourceFilterSettings', {
                 'sourceName': `${currentForegroundSource}`,
@@ -397,6 +387,13 @@
                 mouseBoundaryRight = 0,
                 mouseBoundaryTop = 0,
                 mouseBoundaryBottom = 0
+
+                obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
             }
 
             //console.log("coordinates FollowMouse()",coordinates)
@@ -499,6 +496,13 @@
             mouseBoundaryRight = 0,
             mouseBoundaryTop = 0,
             mouseBoundaryBottom = 0
+
+            obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
         }
         
         //console.log("coordinates FollowMouse()",coordinates)
@@ -527,8 +531,25 @@
             mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
             mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
             mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
-            //console.log(mouseBoundaryLeft,mouseBoundaryRight,mouseBoundaryTop,mouseBoundaryBottom) 
-            
+            console.log(Number(mouseBoundaryLeft),Number(mouseBoundaryRight),Number(mouseBoundaryTop),Number(mouseBoundaryBottom)) 
+            console.log(Number(mouseX),Number(mouseY))
+
+            const mouseBoundary = {
+                mouseBoundaryLeft: mouseBoundaryLeft,
+                mouseBoundaryRight: mouseBoundaryRight,
+                mouseBoundaryTop: mouseBoundaryTop,
+                mouseBoundaryBottom: mouseBoundaryBottom
+            };
+
+            obs.call("CallVendorRequest", {
+                vendorName: "obs-browser",
+                requestType: "emit_event",
+                requestData: {
+                    event_name: "mouseBoundary",
+                    event_data: { mouseBoundary },
+                },
+            });            
+
             //Set Filter Settings
             obs.call('SetSourceFilterSettings', { 
                 'sourceName': `${currentForegroundSource}`,
@@ -622,7 +643,6 @@ function setShapeSize(amount){
             });
             }
         });
-        //setTimeout(connectOBS,1000)
         console.log('browser refresh complete')
         }
     </script>

@@ -1,5 +1,5 @@
         //Screen Share hotkeys
-        var fullScreen_HK = 'F4', 
+        let fullScreen_HK = 'F4', 
         followMouse_HK = 'F5',
         followMouseAndZoom_HK = 'F6',
         toggleMouse_HK = 'F7',

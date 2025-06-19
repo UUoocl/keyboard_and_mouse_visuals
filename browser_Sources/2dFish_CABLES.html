@@ -41,20 +41,13 @@
 <body>
     <canvas id="glcanvas" width="100vw" height="100vh" tabindex="1"></canvas>
 
-    <script src="obs_webSocket_details/websocketDetails.js"></script>
-    <script src="obs_webSocket_details/obs-ws.js"></script>
-    <script src="obs_webSocket_details/obsConnect.js"></script>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    
     <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
   
     <script>
-      const obs = new OBSWebSocket();
-      wsConnect();
-      
-      async function wsConnect() 
-        {  
-          await connectOBS(obs);
-        }
-        
+       
         obs.on("InputSettingsChanged", async function (event) {
             //console.log(event);
             switch (event.inputName) {

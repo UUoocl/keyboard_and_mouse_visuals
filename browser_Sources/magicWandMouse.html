@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    
+  </head>
+  <body>
+    <main>
+    </main>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <script>
+      let mousePosX = 0, mousePosY = 0;
+let viewMode, mouseBoundary;
+      let outMinX = 144, outMaxX = 1776;
+      let outMinY = 80, outMaxY = 1000;
+      let inMinX, inMaxX;
+      let inMinY, inMaxY;
+
+      window.addEventListener(`mouseBoundary`, async function (event) {
+        //event wss details
+        console.log("message received: ", event)
+        if (event.detail.hasOwnProperty('mouseBoundary')) {
+          mouseBoundary = event.detail.mouseBoundary;
+          inMinX = mouseBoundary.mouseBoundaryLeft; 
+          inMaxX = mouseBoundary.mouseBoundaryRight;
+          inMinY = mouseBoundary.mouseBoundaryTop
+          inMaxY = mouseBoundary.mouseBoundaryBottom;
+        }
+      })
+
+      obs.on("InputSettingsChanged", async function (event) {
+        switch (event.inputName) {
+          case 'cursor':
+            const mousePosition = event.inputSettings.text.split(" ");
+            if(viewMode === 'zoomAndFollowMouse'){
+              mousePosition[0] = ((mousePosition[0] - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
+              mousePosition[1] = ((mousePosition[1] - inMinY) * (outMaxY - outMinY)) / (inMaxY - inMinY) + outMinY;
+            }
+            mousePosX = Number(mousePosition[0])
+            mousePosY = Number(mousePosition[1])
+            break;
+          case 'mouseButtonText':
+            mousePressed(event.inputSettings.text); 
+          case 'view mode':
+            viewMode = event.inputSettings.text;
+            break;
+          default:
+            break;
+        }
+      })
+      </script>
+    <script src="lib/p5.js"></script>
+    <script src="lib/magicWandMouse_Sketch.js"></script>
+    <script src="lib/magicWandMouse_Class.js"></script>
+  </body>
+</html>
