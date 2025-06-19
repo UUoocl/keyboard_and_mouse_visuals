@@ -11,7 +11,7 @@
     <script src="js/obsConnect.js"></script>
     <script>
       let mousePosX = 0, mousePosY = 0;
-let viewMode, mouseBoundary;
+      let viewMode, mouseBoundary;
       let outMinX = 144, outMaxX = 1776;
       let outMinY = 80, outMaxY = 1000;
       let inMinX, inMaxX;
@@ -42,6 +42,7 @@ let viewMode, mouseBoundary;
             break;
           case 'mouseButtonText':
             mousePressed(event.inputSettings.text); 
+            break;
           case 'view mode':
             viewMode = event.inputSettings.text;
             break;
