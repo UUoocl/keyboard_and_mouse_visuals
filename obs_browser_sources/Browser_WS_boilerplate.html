@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Boiler Plate</title>
+</head>
+
+<body>
+  <p>A blank page that includes scripts to connect to the OBS websocket server</p>
+
+  <script src="lib/obs-ws.js"></script>
+  <script src="js/obsConnect.js"></script>
+  <script src="obs_webSocket_details/websocketDetails.js"></script>
+
+  <!-- <script src="lib/p5.js"></script> -->
+  <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
+
+
+  <script id="mousePositionInput">
+    obs.on("InputSettingsChanged", async function (event) {
+      switch (event.inputName) {
+        case 'mouseLocation':
+          mousePosition = event.inputSettings.text.split(" ");
+          mousePosX = Number(mousePosition[0])
+          mousePosY = window.innerHeight - Number(mousePosition[1])
+          break;
+        case 'MouseHotKey':
+          mousePressed(event.inputSettings.text);
+          break;
+        default:
+          break;
+      }
+    })
+  </script>
+</body>
+
+</html>

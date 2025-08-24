@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    
+  </head>
+  <body>
+    <main>
+    </main>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <script src="obs_webSocket_details/websocketDetails.js"></script>
+    <script>
+      let mousePosX = 0, mousePosY = 0;
+      let viewMode, mouseBoundary;
+      let outMinX = 144, outMaxX = 1776;
+      let outMinY = 80, outMaxY = 1000;
+      let inMinX, inMaxX;
+      let inMinY, inMaxY;
+      let mouseOffsetX = 0;
+      let mouseOffsetY = 0; 
+      
+      window.addEventListener("load", (event) => {
+        //wait for obs to add the css variables
+        setTimeout(()=>{
+          mouseOffsetX = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-x'));
+          mouseOffsetY = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-y'))
+          console.log(`mouseOffsetX: ${mouseOffsetX}, mouseOffsetY: ${mouseOffsetY}`);
+        }, 100);
+      });
+
+      window.addEventListener(`mouseBoundary`, async function (event) {
+        if (event.detail.hasOwnProperty('mouseBoundary')) {
+          mouseBoundary = event.detail.mouseBoundary;
+          inMinX = mouseBoundary.mouseBoundaryLeft; 
+          inMaxX = mouseBoundary.mouseBoundaryRight;
+          inMinY = mouseBoundary.mouseBoundaryTop
+          inMaxY = mouseBoundary.mouseBoundaryBottom;
+        }
+      })
+
+      obs.on("InputSettingsChanged", async function (event) {
+        switch (event.inputName) {
+          case 'MouseHotKey':
+            mousePressed(event.inputSettings.text); 
+            break;
+          case 'MouseLocation':
+            const mousePosition = event.inputSettings.text.split(" ");
+            // if(viewMode === 'zoomAndFollowMouse'){
+            //   mousePosition[0] =  (((mouseOffsetX + mousePosition[0]) - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
+            //   mousePosition[1] =  (((mouseOffsetY + mousePosition[1]) - inMinY) * (outMaxY - outMinY)) / (inMaxY - inMinY) + outMinY;
+            // }
+            mousePosX = Number(mousePosition[0])
+            if(mouseOffsetY != 0){
+              mousePosY = Number(mouseOffsetY) -  Number(mousePosition[1])
+            } else {
+              mousePosY = Number(mousePosition[1]);
+            }
+            
+            break;
+          // case 'view mode':
+          //   viewMode = event.inputSettings.text;
+          //   break;
+          default:
+            break;
+        }
+      })
+      
+      </script>
+    <script src="lib/p5.js"></script>
+    <script src="lib/magicWandMouse_Sketch.js"></script>
+    <script src="lib/magicWandMouse_Class.js"></script>
+  </body>
+</html>

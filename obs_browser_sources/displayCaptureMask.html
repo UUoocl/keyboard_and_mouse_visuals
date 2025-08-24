@@ -1,0 +1,574 @@
+<!-- https://uuoocl.github.io/slides-studio/slides_studio_OBS_browser_source.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Share Mask</title>
+    <style>
+        :root {
+            --top: 0px;
+            --left: 0px;
+            --bottom: 0;
+            --right: 0;
+            --height: 0px;
+            --width: 0px; /* 16:9 Aspect Ratio */
+            --border-style: solid;
+            --border-width: 0px;
+            --border-radius: 24px;
+            --transform-perspective: 0px;
+            --transform-rotate-y: 0deg;
+            --filter-opacity: 100%; 
+            --filter-drop-shadow-color: rgba(0, 0, 0, 50.5);
+            --filter-drop-shadow-offset-x: 30px;
+            --filter-drop-shadow-offset-y: 21px;
+            --filter-drop-shadow-blur: 40px;
+        }
+
+        body {
+            background-color: #000000;
+        }
+        
+        .container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        }
+        
+        .mask-position {
+            position: absolute;
+            background-color: #ffffff;
+            top: var(--top);
+            left: var(--left);
+            bottom: var(--bottom);
+            right: var(--right);
+            width: var(--width);
+            height: var(--height);
+            border-style: var(--border-style);
+            border-width: var(--border-width);
+            border-radius: var(--border-radius);
+            transform: perspective(var(--transform-perspective)) rotateY(var(--transform-rotate-y));
+            filter: opacity(var(--filter-opacity)) drop-shadow(var(--filter-drop-shadow-color) var(--filter-drop-shadow-offset-x) var(--filter-drop-shadow-offset-y) var(--filter-drop-shadow-blur));
+            transition:
+                width 0.5s, 
+                height 0.5s,
+                top 0.5s,
+                left 0.5s,
+                bottom 0.5s,
+                right 0.5s,
+                border-radius 0.5s,
+                filter 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- <iframe id= "revealIframe" class="responsive-iframe" src="index.html"></iframe> -->
+        <div id= "divMask" class="mask-position"></div>
+    </div>
+    
+    <!-- <script src="../lib/obs-ws.js"></script>
+    <script src="../lib/obsConnect.js"></script> -->
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <!-- <script src="obs_webSocket_details/websocketDetails.js"></script> -->
+    <!-- <script src="js/hotkeyConfig.js"></script> -->
+    
+    <script id="InputRouter">
+        //on obs text source settings change
+        obs.on("InputSettingsChanged", async function (event) {
+            //console.log(event);
+            switch (event.inputName) {
+                case 'MouseLocation':
+                    //adjust mouse position for offset
+                    mouseCoordinates = event.inputSettings.text.split(' ')
+                    mousePosX = Number(mouseCoordinates[0])
+                    if(mouseOffsetY != 0){
+                        mousePosY = Number(mouseOffsetY) -  Number(mouseCoordinates[1])
+                    } else {
+                        mousePosY = Number(mouseCoordinates[1]);
+                    }
+                    mouseCoordinates = [mousePosX, mousePosY];
+
+                    if(viewMode === "zoomAndFollowMouse"){
+                        zoomAndFollowMouse(mouseCoordinates);
+                        break;
+                    }
+                    if(viewMode === "followMouse"){
+                        //isMaskMoving = true;
+                        followMouse(mouseCoordinates);
+                        break;
+                    }
+                    if(viewMode === "fullScreen"){
+                        break;
+                    }
+                    break;
+                    
+                case 'keyHotkey':
+                //console.log(event);
+                switch (event.inputSettings.text) {
+                    case ' ':
+                        break;
+                    case followMouseAndZoom_HK: 
+                        zoomAndFollowMouse(mouseCoordinates)
+                        break;
+                    case followMouse_HK:
+                        followMouse(mouseCoordinates)
+                        break;
+                    case fullScreen_HK:
+                        fullScreen();
+                        break;
+                    case toggleMouse_HK:
+                        toggleSource('scene|||Screen Share','Input Mouse Overlay')
+                        break;
+                    case toggleHotkey_HK:
+                        toggleSource('scene|||Screen Share','Input Hotkeys')
+                        break;
+                    }
+                default:
+                    break;ƒ
+                    }
+                })
+    </script>
+
+    <script id="ShareScreenVariables">
+      
+        let viewMode = 'full screen', 
+        mouseX,
+        mouseY,
+        mouseCoordinates = [0,0],
+        displayWidth, 
+        displayHeight, 
+        displayXmin = 0,
+        displayYmin = 0,
+        displayXmax,
+        displayYmax,
+        displayZoomXmin = 0,
+        displayZoomYmin = 0,
+        displayZoomXmax,
+        displayZoomYmax,
+        sourceFilterRadius = 1100,
+        sourceWidth,
+        sourceHeight,
+        sourceFilterZoom = 100,
+        boundarySize = 0.5, // (.01 to .5)
+        mouseBoundaryLeft = 0,
+        mouseBoundaryTop = 0,
+        mouseBoundaryBottom = 0
+        mouseBoundaryRight = 0;
+        displayCaptureSourceTransform = {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 1080,
+            "boundsType": "OBS_BOUNDS_SCALE_INNER",
+            "boundsWidth": 1920,
+            "cropBottom": 0,
+            "cropLeft": 0,
+            "cropRight": 0,
+            "cropToBounds": false,
+            "cropTop": 0,
+            "height": 1080,
+            "positionX": 0,
+            "positionY": 0,
+            "rotation": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "sourceHeight": 1080,
+            "sourceWidth": 1920,
+            "width": 1920
+        };
+
+        let mousePosX = 0, mousePosY = 0;
+        let mouseBoundary;
+        let outMinX = 480, outMaxX = 1440;
+        let outMinY = 250, outMaxY = 830;
+        let inMinX, inMaxX;
+        let inMinY, inMaxY;
+        let mouseOffsetX = 0;
+        let mouseOffsetY = 0; 
+        let isMaskMoving = false;
+
+        let displayCaptureScene;
+        let displayCaptureSourceId;
+        
+        window.addEventListener('DOMContentLoaded', async (event) => {
+            //obs css added after page load
+            setTimeout(async () => {
+                mouseOffsetX = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-x'));
+                mouseOffsetY = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-y'))
+                
+                //get display dimensions
+                displayWidth = getComputedStyle(document.body).getPropertyValue('--display-width');
+                displayHeight = getComputedStyle(document.body).getPropertyValue('--display-height');
+                console.log(`displayWidth: ${displayWidth}, displayHeight: ${displayHeight}`);
+
+                displayXmax = Number(displayXmin) + Number(displayWidth);
+                displayYmax = Number(displayYmin) + Number(displayHeight);
+                
+                console.log(`displayXmin: ${displayXmin}, displayXmax: ${displayXmax}, displayYmin: ${displayYmin}, displayYmax: ${displayYmax}`);
+                
+            }, 100);
+        })
+
+        obs.on("Identified", async (data) => {
+            await obs.call("GetInputSettings", { inputName: "ScreenShare_HotKey_Settings"})
+            .then((result) => {
+                const hotkeys = JSON.parse(`{${result.inputSettings.text}}`);
+                console.log("Hotkeys from Settings Source:", hotkeys);
+                followMouseAndZoom_HK = hotkeys.followMouseAndZoom_HK;
+                followMouse_HK = hotkeys.followMouse_HK;
+                fullScreen_HK = hotkeys.fullScreen_HK;
+                toggleMouse_HK = hotkeys.toggleMouse_HK;
+                toggleHotkey_HK = hotkeys.toggleHotkey_HK;
+            });
+
+            //set display capture source name
+            displayCaptureScene = getComputedStyle(document.body).getPropertyValue('--display-capture-scene-name');
+            displayCaptureSourceId = getComputedStyle(document.body).getPropertyValue('--display-capture-source-name');
+
+            // get scene item id for display capture source
+            displayCaptureSourceId = await getSceneId(); 
+            displayCaptureSourceId = displayCaptureSourceId['sceneItemId'];
+
+            obs.call("SetInputSettings", {
+                inputName: 'keyHotkey',
+                inputSettings: {
+                    text: 'F16',
+                }
+            });
+            
+        });
+        
+        async function getSceneId() {
+            return await obs.call("GetSceneItemId", { sceneName: displayCaptureScene, sourceName: displayCaptureSourceId})
+        }
+
+        </script>
+
+        <script id="ScreenShareFunctions">
+        //full screen
+        function fullScreen() {
+            console.log("full screen")
+            viewMode = 'fullScreen';
+
+            obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
+            //css variables
+            
+            const maskPosition = document.querySelector(':root');
+            maskPosition.style.setProperty('--left', `0`);           
+            maskPosition.style.setProperty('--top', `0`);
+            // maskPosition.style.setProperty('--bottom', '0');
+            // maskPosition.style.setProperty('--right', '0');
+            maskPosition.style.setProperty('--width', '100%');
+            maskPosition.style.setProperty('--height', '100%');
+            // maskPosition.style.setProperty('--border-style', 'solid');
+            // maskPosition.style.setProperty('--border-width', '0px');
+            // maskPosition.style.setProperty('--border-radius', '24px');
+            // // maskPosition.style.setProperty('--transform-perspective', '1500px');
+            // // maskPosition.style.setProperty('--transform-rotate-y', '15deg');
+            // maskPosition.style.setProperty('--filter-opacity', '100%');
+            // maskPosition.style.setProperty('--filter-drop-shadow-color', 'rgba(0, 0, 0, 50.5)');
+            // maskPosition.style.setProperty('--filter-drop-shadow-offset-x', '30px');
+            // maskPosition.style.setProperty('--filter-drop-shadow-offset-y', '21px');
+            // maskPosition.style.setProperty('--filter-drop-shadow-blur', '40px');
+
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": Number(displayHeight),
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": Number(displayWidth),
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": 0,
+                "positionY": 0,
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+            setSourceTransform(displayCaptureSourceId, displayCaptureSourceTransform);
+        }
+
+        //f15 follow mouse
+
+        function followMouse(coordinates){
+            //initialize follow mouse mode
+            if(viewMode != 'followMouse'){
+                viewMode = 'followMouse';
+                // sceneForegrounds[currentScene]["viewMode"] = 'followMouse';
+                sourceHeight = Number(displayHeight) * 0.33;
+                sourceWidth = sourceHeight * 1.7777778
+                //Set mouseBoundary variables l,r,t,b
+                mouseBoundaryLeft = 0,
+                mouseBoundaryRight = 0,
+                mouseBoundaryTop = 0,
+                mouseBoundaryBottom = 0
+
+                //css variables
+                const maskPosition = document.querySelector(':root');
+                maskPosition.style.setProperty('--top',' 100px');
+                maskPosition.style.setProperty('--left',' 100px');
+                maskPosition.style.setProperty('--bottom',' 0');
+                maskPosition.style.setProperty('--right',' 0');
+                maskPosition.style.setProperty('--height',`${sourceHeight}px`);
+                maskPosition.style.setProperty('--width',`${sourceWidth}px`); /* 16','9 Aspect Ratio */
+                maskPosition.style.setProperty('--border-style',' solid');
+                maskPosition.style.setProperty('--border-width',' 0px');
+                maskPosition.style.setProperty('--border-radius',' 24px');
+                maskPosition.style.setProperty('--transform-perspective',' 1500px');
+                maskPosition.style.setProperty('--transform-rotate-y',' 0deg');
+                maskPosition.style.setProperty('--filter-opacity',' 100%'); 
+                maskPosition.style.setProperty('--filter-drop-shadow-color',' rgba(0, 0, 0, 50.5);');
+                maskPosition.style.setProperty('--filter-drop-shadow-offset-x',' 30px');
+                maskPosition.style.setProperty('--filter-drop-shadow-offset-y',' 21px');
+                maskPosition.style.setProperty('--filter-drop-shadow-blur',' 40px');
+
+                obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+                });
+                console.log("boundsWidth", displayWidth, "boundsHeight", displayHeight);
+                Object.assign(displayCaptureSourceTransform, {
+                    "alignment": 5,
+                    "boundsAlignment": 0,
+                    "boundsHeight": Number(displayHeight),
+                    "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                    "boundsWidth": Number(displayWidth),
+                    "cropBottom": 0,
+                    "cropLeft": 0,
+                    "cropRight": 0,
+                    "cropToBounds": false,
+                    "cropTop": 0,
+                    "height": displayHeight,
+                    "positionX": 0,
+                    "positionY": 0,
+                    "rotation": 0,
+                    "scaleX": 1,
+                    "scaleY": 1,
+                    "sourceHeight": displayHeight,
+                    "sourceWidth": displayWidth,
+                    "width": displayWidth
+                });
+                setSourceTransform(displayCaptureSourceId, displayCaptureSourceTransform);               
+            }
+            
+            mouseX = Number(coordinates[0]);
+            mouseY = Number(coordinates[1]);
+
+            // console.log("coordinates FollowMouse()",coordinates, mouseBoundaryLeft, mouseBoundaryRight, mouseBoundaryTop, mouseBoundaryBottom)
+            
+            //if mouse not in boundary area
+            if(((mouseX < mouseBoundaryLeft) || (mouseX > mouseBoundaryRight)) || ((mouseY < mouseBoundaryTop) || (mouseY > mouseBoundaryBottom))){
+                //Set mouseBoundary variables l,r,t,b
+                //check if mouse is near edge X, Y
+                if((mouseX - (sourceWidth/2)) < displayXmin){
+                    mouseX = (displayXmin + (sourceWidth/2));
+                }
+                if((mouseX + (sourceWidth/2)) > displayXmax){
+                    mouseX = displayXmax - (sourceWidth/2);
+                }
+                if((mouseY - (sourceHeight/2)) < displayYmin){
+                    mouseY = displayYmin + (sourceHeight/2);
+                }
+                if((mouseY + (sourceHeight/2)) > displayYmax){
+                    mouseY = (displayYmax - (sourceHeight/2));
+                }
+                
+                mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
+                mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
+                mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
+                mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
+
+                const maskPosition = document.querySelector(':root');
+                maskPosition.style.setProperty('--left', `${mouseBoundaryLeft}px`);
+                maskPosition.style.setProperty('--top', `${mouseBoundaryTop}px`);
+                // maskPosition.style.setProperty('--width', sourceWidth + 'px');
+                // maskPosition.style.setProperty('--height', `${sourceHeight}px`);
+
+            // setTimeout(() => {
+            //     isMaskMoving = false;
+            // }, 500); // Reset after 500ms
+                
+            }
+        }
+        
+    //zoom region
+    function zoomAndFollowMouse(coordinates){
+        //initialize follow mouse mode
+        if(viewMode != 'zoomAndFollowMouse'){
+            viewMode = 'zoomAndFollowMouse';
+            
+            // sceneForegrounds[currentScene]["viewMode"] = 'zoomAndFollowMouse'
+            sourceHeight = displayHeight;
+            sourceWidth = displayWidth
+            
+            displayZoomScale = 2;
+            displayZoomYmax = displayHeight * displayZoomScale;
+            displayZoomXmax = (displayHeight * displayZoomScale)*1.7777778;    ;
+            //Set mouseBoundary variables l,r,t,b
+            mouseBoundaryLeft = 0,
+            mouseBoundaryRight = 0,
+            mouseBoundaryTop = 0,
+            mouseBoundaryBottom = 0
+
+            //css variables
+            const maskPosition = document.querySelector(':root');
+            maskPosition.style.setProperty('--top',' 0px');
+            maskPosition.style.setProperty('--left',' 0px');
+            maskPosition.style.setProperty('--bottom',' 0');
+            maskPosition.style.setProperty('--right',' 0');
+            maskPosition.style.setProperty('--height',`${sourceHeight}px`);
+            maskPosition.style.setProperty('--width',`${sourceWidth}px`); /* 16','9 Aspect Ratio */
+            maskPosition.style.setProperty('--border-style',' solid');
+            maskPosition.style.setProperty('--border-width',' 0px');
+            maskPosition.style.setProperty('--border-radius',' 24px');
+            maskPosition.style.setProperty('--transform-perspective',' 1500px');
+            maskPosition.style.setProperty('--transform-rotate-y',' 0deg');
+            maskPosition.style.setProperty('--filter-opacity',' 100%'); 
+            maskPosition.style.setProperty('--filter-drop-shadow-color',' rgba(0, 0, 0, 50.5);');
+            maskPosition.style.setProperty('--filter-drop-shadow-offset-x',' 30px');
+            maskPosition.style.setProperty('--filter-drop-shadow-offset-y',' 21px');
+            maskPosition.style.setProperty('--filter-drop-shadow-blur',' 40px');
+
+            obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
+
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": displayYmax,
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": displayXmax,
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": 0,
+                "positionY": 0,
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+            setSourceTransform(displayCaptureSourceId, displayCaptureSourceTransform);
+        }
+                mouseX = Number(coordinates[0]);
+        mouseY = Number(coordinates[1]);
+        // if mouse not in boundary area
+        if(((mouseX > displayXmin) || (mouseX < displayXmax)) || ((mouseY > displayYmin) || (mouseY < displayYmax))){
+            //Set mouseBoundary variables l,r,t,b
+            //check if mouse is near edge X, Y
+            if((mouseX <displayXmin)){
+                mouseX = (displayXmin);
+                // mouseX = (displayXmin + (sourceWidth/2));
+            }
+            if(mouseX > displayXmax){
+                mouseX = (displayXmax);
+                // mouseX = (displayXmax - (sourceWidth/2));
+            }
+            if(mouseY < displayYmin){
+                mouseY = (displayYmin);
+            }
+            if(mouseY > displayYmax){
+                mouseY = (displayYmax);
+            }
+            
+            mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
+            mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
+            mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
+            mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
+            console.log(Number(mouseBoundaryLeft),Number(mouseBoundaryRight),Number(mouseBoundaryTop),Number(mouseBoundaryBottom)) 
+            console.log(Number(mouseX),Number(mouseY))
+
+            const mouseBoundary = {
+                mouseBoundaryLeft: mouseBoundaryLeft,
+                mouseBoundaryRight: mouseBoundaryRight,
+                mouseBoundaryTop: mouseBoundaryTop,
+                mouseBoundaryBottom: mouseBoundaryBottom
+            };
+
+        //console.log("coordinates FollowMouse()",coordinates)
+        // mouseX = mapNumToRange(Number(coordinates[0]), displayXmin, displayXmax, displayZoomXmin, displayZoomXmax); 
+        // mouseY = mapNumToRange(Number(coordinates[1]), displayYmin, displayYmax, displayZoomYmin, displayZoomYmax);
+
+                
+console.log("ZoomAndFollowMouse", mouseX, mouseY, displayZoomXmax, displayZoomYmax);
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": displayHeight * displayZoomScale,
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": (displayHeight * displayZoomScale) * 1.7777778,
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": -Number(mouseX),
+                "positionY": -Number(mouseY),
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+        setSourceTransform(displayCaptureSourceId, displayCaptureSourceTransform);
+// 
+        }
+    }
+
+    function mapNumToRange(num, inMin, inMax, outMin, outMax){
+        // console.log(`mapNumToRange(${num}, ${inMin}, ${inMax}, ${outMin}, ${outMax})`);
+      const mappedNumber =(((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin);
+    //   console.log(num, mappedNumber.toFixed(2))
+      return(mappedNumber !== 0 ? mappedNumber.toFixed(2):0);
+    }
+
+    function setSourceTransform(sourceId, transform) {
+        obs.call("SetSceneItemTransform", {
+            sceneName: displayCaptureScene,
+            sceneItemId: sourceId,
+            sceneItemTransform: transform
+        });
+    }
+
+
+// #region Future Functions
+function moveMouse(coordinates){}
+
+// Change the shape around the mouse
+function setShape(followShape){}
+
+function setShapeSize(amount){
+    // follow size increase
+    
+    // follow size decrease
+}
+    </script>
+</body>
+</html>
