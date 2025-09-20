@@ -48,16 +48,34 @@
     <!-- <script src="lib/SCRIPT_FOR_THIS_Page.js"></script> -->
   
     <script>
-       
+        let mousePosX = 0, mousePosY = 0;
+        let mouseOffsetX = 0;
+        let mouseOffsetY = 0;
+
+        window.addEventListener("load", (event) => {
+        //wait for obs to add the css variables
+        setTimeout(()=>{
+            mouseOffsetX = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-x'));
+            mouseOffsetY = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-y'))
+            // console.log(`mouseOffsetX: ${mouseOffsetX}, mouseOffsetY: ${mouseOffsetY}`);
+        }, 100);
+        });
+
         obs.on("InputSettingsChanged", async function (event) {
             //console.log(event);
             switch (event.inputName) {
                 case 'MouseLocation':
                     //document.getElementById("obsws-mouse").innerHTML = event.inputSettings.text
-                    const mouseCoordinates = event.inputSettings.text.split(' ')
-                    //console.log(mouseCoordinates);
+                    const mousePosition = event.inputSettings.text.split(' ')
+                    mousePosX = Number(mousePosition[0])
+                    if (mouseOffsetY != 0) {
+                        mousePosY = Number(mouseOffsetY) - Number(mousePosition[1])
+                    } else {
+                        mousePosY = Number(mousePosition[1]);
+                    }               
+                    //console.log(mousePosition);
                     
-                    if (mouseCoordinates) {
+                    if (mousePosition) {
                         // get the current value
                         const varMouseX = CABLES.patch.getVar("MouseInX");
                         const varMouseY = CABLES.patch.getVar("MouseInY");
@@ -75,8 +93,8 @@
                         // varMouseDrag.setValue(1);
                         
                         // change the value
-                        varMouseX.setValue(Number(mouseCoordinates[0]));
-                        varMouseY.setValue(window.innerHeight - Number(mouseCoordinates[1]));
+                        varMouseX.setValue(Number(mousePosX));
+                        varMouseY.setValue(Number(mousePosY));
                         // varPreviousMouseX.setValue(currentValueX);
                         // varPreviousMouseY.setValue(currentValueY);
                         // varMouseMoving.setValue(0);

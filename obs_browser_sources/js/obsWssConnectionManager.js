@@ -3,7 +3,7 @@
 //2. Check if the browser local storage includes WSS details
 //3. listen for a WSS details event message
 //4. listen for a button press to start
-//5. Check if a websocket details variable has been defined
+//5. Check if a websocket details js variable has been defined
 //6. Check if css variables are defined
 
 let obsWss = new OBSWebSocket();
