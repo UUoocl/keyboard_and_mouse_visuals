@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    
+  </head>
+  <body>
+    <main>
+    </main>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <script src="obs_webSocket_details/websocketDetails.js"></script>
+    <script>
+      let viewMode;
+      let mousePosX = 0, mousePosY = 0;
+      let displayXmin = 0;
+      let displayXmax = 0;
+      let displayYmin = 0;
+      let displayYmax = 0;
+      
+      window.addEventListener("load", (event) => {
+        //wait for obs to add the css variables
+        setTimeout(()=>{
+          displayXmin = Number(getComputedStyle(document.body).getPropertyValue('--display-x-min'));
+          displayXmax = Number(getComputedStyle(document.body).getPropertyValue('--display-x-max'));
+          displayYmin = Number(getComputedStyle(document.body).getPropertyValue('--display-y-min'));
+          displayYmax = Number(getComputedStyle(document.body).getPropertyValue('--display-y-max'));
+          console.log(`displayXmin: ${displayXmin}, displayXmax: ${displayXmax}, displayYmin: ${displayYmin}, displayYmax: ${displayYmax}`);
+        }, 100);
+      });
+
+      obs.on("InputSettingsChanged", async function (event) {
+        switch (event.inputName) {
+          case 'MouseHotKey':
+            mousePressed(event.inputSettings.text); 
+            break;
+          case 'MouseLocation':
+            const mousePosition = event.inputSettings.text.split(" ");
+            if (isMacOS()) {
+              // Perform macOS-specific mouse position adjustments
+              mousePositionMapped = await mapNumRange_MacOS(mousePosition, displayXmin, displayXmax, displayYmin, displayYmax, 0, 0, window.innerWidth, window.innerHeight)
+              console.log(Math.round(Number(mousePositionMapped[0])), Math.round(Number(mousePositionMapped[1])));
+              mousePosX = Math.round(Number(mousePositionMapped[0]));
+              mousePosY = Math.round(Number(mousePositionMapped[1]));
+            } else {
+              // console.log("The user is not on macOS.");
+              // Perform actions for other operating systems
+              const mousePositionMapped = await mapNumRange(mousePosition, displayXmin, displayXmax, displayYmin, displayYmax, 0, 0, window.innerWidth, window.innerHeight)
+              console.log(Number(mousePositionMapped[0]),Number(mousePositionMapped[1]));
+              mousePosX = Math.round(Number(mousePositionMapped[0]));
+              mousePosY = Math.round(Number(mousePositionMapped[1]));
+            }
+
+            //print mouse position to text source
+            obs.call("SetInputSettings", {
+                inputName: 'mouseDisplay3',
+                inputSettings: {
+                    text: `${mousePosX} ${mousePosY}`,
+                }
+            });
+            
+          break;
+          // case 'view mode':
+          //   viewMode = event.inputSettings.text;
+          //   break;
+          default:
+            break;
+        }
+      })
+
+      function isMacOS() {
+        return navigator.userAgent.indexOf('Mac OS X') !== -1;
+      }
+
+      async function mapNumRange(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
+        const mappedX = ((num[0] - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
+        const mappedY = (num[1] - inMinY) * (outMaxY - outMinY) / (inMaxY - inMinY) + outMinY;
+        return [mappedX, mappedY];
+      }
+      
+      async function mapNumRange_MacOS(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
+        const mappedX = (num[0] - inMinX) * (outMaxX - outMinX) / (inMaxX - inMinX) + outMinX;
+        const mappedY = outMinY + (outMaxY - outMinY) * ((inMaxY - num[1]) / (inMaxY - inMinY));
+        console.log("mapped", mappedY, mappedX, "num", num);
+        return [mappedX, mappedY];
+      }
+      
+    </script>
+    <script src="lib/p5.js"></script>
+    <script src="lib/magicWandMouse_Sketch.js"></script>
+    <script src="lib/magicWandMouse_Class.js"></script>
+  </body>
+</html>

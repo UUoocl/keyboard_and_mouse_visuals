@@ -1,0 +1,61 @@
+{
+  "prev_ver": 520159234,
+  "name": "macOS Screen Capture 2",
+  "uuid": "da098e3f-492f-4e8f-aa3d-29069240c36d",
+  "id": "screen_capture",
+  "versioned_id": "screen_capture",
+  "settings": {
+    "display_uuid": "37D8832A-2D66-02CA-B9F7-8F30A301B230",
+    "show_cursor": true,
+    "hide_obs": true
+  },
+  "mixers": 255,
+  "sync": 0,
+  "flags": 0,
+  "volume": 1.0,
+  "balance": 0.5,
+  "enabled": true,
+  "muted": false,
+  "push-to-mute": false,
+  "push-to-mute-delay": 0,
+  "push-to-talk": false,
+  "push-to-talk-delay": 0,
+  "hotkeys": {
+    "libobs.mute": [],
+    "libobs.unmute": [],
+    "libobs.push-to-mute": [],
+    "libobs.push-to-talk": []
+  },
+  "deinterlace_mode": 0,
+  "deinterlace_field_order": 0,
+  "monitoring_type": 0,
+  "private_settings": {},
+  "filters": [
+    {
+      "prev_ver": 520159234,
+      "name": "Color Correction",
+      "uuid": "7a3bc6d2-49bc-4f00-bde7-4a78c6c002d7",
+      "id": "color_filter",
+      "versioned_id": "color_filter_v2",
+      "settings": { "brightness": 0.0002 },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": false,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "private_settings": {}
+    }
+  ]
+}
+
+

@@ -1,0 +1,971 @@
+<!-- https://uuoocl.github.io/slides-studio/slides_studio_OBS_browser_source.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Share Mask</title>
+    <style>
+        :root {
+            --top: 0px;
+            --left: 0px;
+            --bottom: 0;
+            --right: 0;
+            --height: 0px;
+            --width: 0px; /* 16:9 Aspect Ratio */
+            --border-style: solid;
+            --border-width: 0px;
+            --border-radius: 24px;
+            --transform-perspective: 0px;
+            --transform-rotate-y: 0deg;
+            --filter-opacity: 100%; 
+            --filter-drop-shadow-color: rgba(0, 0, 0, 50.5);
+            --filter-drop-shadow-offset-x: 30px;
+            --filter-drop-shadow-offset-y: 21px;
+            --filter-drop-shadow-blur: 40px;
+            /* Rectangle size can be in px or percent (e.g. 80%).
+                Example: --rect-w: 80%; --rect-h: 60%; 
+                */
+            --rect-w: 90%;
+            --rect-h: 90%;
+            --border-thickness: 12px;            
+        }
+
+        body {
+            height: 100%;
+            margin: 0;
+            background-color: #000000;
+        }
+
+        /* Make the SVG fill the window */
+        svg {
+            z-index: 1;
+            position: fixed;
+            inset: 0; /* top:0; right:0; bottom:0; left:0 */
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            overflow: visible;
+        }
+
+        /* helpful for debugging: show CSS variable values when hovered */
+        .info {
+            z-index: 1;
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-family: monospace;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        
+        .container {
+            z-index: 0;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            /* border-color: crimson; */
+            /* background-color: #ff00ff; */
+        }
+        
+        .mask-position {
+            position: absolute;
+            background-color: #ffffff;
+            top: var(--top);
+            left: var(--left);
+            bottom: var(--bottom);
+            right: var(--right);
+            width: var(--width);
+            height: var(--height);
+            border-style: var(--border-style);
+            border-width: var(--border-width);
+            border-radius: var(--border-radius);
+            transform: perspective(var(--transform-perspective)) rotateY(var(--transform-rotate-y));
+            filter: opacity(var(--filter-opacity)) drop-shadow(var(--filter-drop-shadow-color) var(--filter-drop-shadow-offset-x) var(--filter-drop-shadow-offset-y) var(--filter-drop-shadow-blur));
+            transition:
+                width 0.5s, 
+                height 0.5s,
+                top 0.5s,
+                left 0.5s,
+                bottom 0.5s,
+                right 0.5s,
+                border-radius 0.5s,
+                filter 0.5s;
+        }
+    </style>
+</head>
+<body>
+<svg id="svgRoot" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rectangle with four colored edges" preserveAspectRatio="none">
+  <!-- background -->
+  <rect x="0" y="0" width="100%" height="100%" fill="#11100000" />
+
+  <!-- main rectangle (transparent fill so background shows) -->
+  <rect id="mainRect" x="0" y="0" width="0" height="0" fill="none" stroke="none" />
+
+  <!-- four colored edges (will be positioned by JS) -->
+  <rect id="topEdge"    x="0" y="0" width="0" height="0" fill="#e74c3c" />
+  <rect id="leftEdge"   x="0" y="0" width="0" height="0" fill="#27ae60" />
+  <rect id="rightEdge"  x="0" y="0" width="0" height="0" fill="#2980b9" />
+  <rect id="bottomEdge" x="0" y="0" width="0" height="0" fill="#f39c12" />
+</svg>
+
+<div class="info" id="infoBox" aria-hidden="true"></div>
+
+<div class="container">
+        <!-- <iframe id= "revealIframe" class="responsive-iframe" src="index.html"></iframe> -->
+        <div id= "divMask" class="mask-position"></div>
+    </div>
+    
+    <!-- <script src="../lib/obs-ws.js"></script>
+    <script src="../lib/obsConnect.js"></script> -->
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <!-- <script src="obs_webSocket_details/websocketDetails.js"></script> -->
+    <!-- <script src="js/hotkeyConfig.js"></script> -->
+    
+    <script id="sceneBoundaryScript">
+        // Read CSS variable string (e.g. "80%" or "400px") and return number in pixels.
+        function parseSize(value, axisLength) {
+            if (!value) return 0;
+            value = value.trim();
+            if (value.endsWith('%')) {
+            const pct = parseFloat(value.slice(0, -1));
+            if (isNaN(pct)) return 0;
+            return axisLength * pct / 100;
+            }
+            if (value.endsWith('px')) {
+            const px = parseFloat(value.slice(0, -2));
+            return isNaN(px) ? 0 : px;
+            }
+            // fallback: try to parse as number (px)
+            const num = parseFloat(value);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function updateEdges() {
+            const rootStyles = getComputedStyle(document.documentElement);
+            const svg = document.getElementById('svgRoot');
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+
+            const rectWraw = rootStyles.getPropertyValue('--rect-w') || '100%';
+            const rectHraw = rootStyles.getPropertyValue('--rect-h') || '100%';
+            const thicknessRaw = rootStyles.getPropertyValue('--border-thickness') || '12px';
+
+            const rectW = parseSize(rectWraw, W);
+            const rectH = parseSize(rectHraw, H);
+            const thickness = parseSize(thicknessRaw, Math.min(W, H));
+
+            // center the rectangle
+            const x = Math.round((W - rectW) / 2);
+            const y = Math.round((H - rectH) / 2);
+
+            const mainRect = document.getElementById('mainRect');
+            mainRect.setAttribute('x', x);
+            mainRect.setAttribute('y', y);
+            mainRect.setAttribute('width', Math.max(0, Math.round(rectW)));
+            mainRect.setAttribute('height', Math.max(0, Math.round(rectH)));
+
+            // top edge
+            const top = document.getElementById('topEdge');
+            top.setAttribute('x', x);
+            top.setAttribute('y', y);
+            top.setAttribute('width', Math.max(0, Math.round(rectW)));
+            top.setAttribute('height', Math.max(0, Math.round(thickness)));
+            
+            // left edge
+            const left = document.getElementById('leftEdge');
+            left.setAttribute('x', x);
+            left.setAttribute('y', y);
+            left.setAttribute('width', Math.max(0, Math.round(thickness)));
+            left.setAttribute('height', Math.max(0, Math.round(rectH)));
+            
+            // right edge
+            const right = document.getElementById('rightEdge');
+            right.setAttribute('x', x + Math.max(0, Math.round(rectW)) - Math.max(0, Math.round(thickness)));
+            right.setAttribute('y', y);
+            right.setAttribute('width', Math.max(0, Math.round(thickness)));
+            right.setAttribute('height', Math.max(0, Math.round(rectH)));
+            
+            // bottom edge
+            const bottom = document.getElementById('bottomEdge');
+            bottom.setAttribute('x', x);
+            bottom.setAttribute('y', y + Math.max(0, Math.round(rectH)) - Math.max(0, Math.round(thickness)));
+            bottom.setAttribute('width', Math.max(0, Math.round(rectW)));
+            bottom.setAttribute('height', Math.max(0, Math.round(thickness)));
+            
+            // update info box
+            const info = document.getElementById('infoBox');
+            info.textContent = `rect: ${Math.round(rectW)}×${Math.round(rectH)} px, thickness: ${Math.round(thickness)} px`;
+            info.textContent += ` | top: ${top.getAttribute('y')} px left: ${left.getAttribute('x')} px right: ${right.getAttribute('x')} px bottom: ${bottom.getAttribute('y')} px`;
+            displayBoundary.Top = top.getAttribute('y');
+            displayBoundary.Left = left.getAttribute('x');
+            displayBoundary.Right = right.getAttribute('x');
+            displayBoundary.Bottom = bottom.getAttribute('y');
+            displayBoundary.Width = top.getAttribute('width');
+            displayBoundary.Height = left.getAttribute('height');
+        }
+
+        // update on load and on resize
+        window.addEventListener('load', updateEdges);
+        window.addEventListener('resize', updateEdges);
+
+        // also observe changes to the documentElement style attribute (so changing CSS variables via JS is picked up)
+        const docObserver = new MutationObserver(updateEdges);
+        docObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    </script> 
+
+    <script id="ShareScreenVariables">
+        let viewMode = 'full screen', 
+        mouseX,
+        mouseY,
+        mouseCoordinates = [0,0],
+        displayWidth, 
+        displayHeight, 
+        displayXmin = 0,
+        displayYmin = 0,
+        displayXmax,
+        displayYmax,
+        displayZoomXmin = 0,
+        displayZoomYmin = 0,
+        displayZoomXmax,
+        displayZoomYmax,
+        sourceFilterRadius = 1100,
+        sourceWidth,
+        sourceHeight,
+        sourceFilterZoom = 100,
+        boundarySize = 0.5, // (.01 to .5)
+        mouseBoundaryLeft = 0,
+        mouseBoundaryTop = 0,
+        mouseBoundaryBottom = 0,
+        mouseBoundaryRight = 0,
+        displayBoundary = {Left: 0, Right: 0, Top: 0, Bottom: 0},
+        mouseOverlayNames;
+        displayCaptureSourceTransform = {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 1080,
+            "boundsType": "OBS_BOUNDS_SCALE_INNER",
+            "boundsWidth": 1920,
+            "cropBottom": 0,
+            "cropLeft": 0,
+            "cropRight": 0,
+            "cropToBounds": false,
+            "cropTop": 0,
+            "height": 1080,
+            "positionX": 0,
+            "positionY": 0,
+            "rotation": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "sourceHeight": 1080,
+            "sourceWidth": 1920,
+            "width": 1920
+        };
+
+        let mousePosX = 0, mousePosY = 0;
+        let mouseBoundary;
+        let outMinX = 480, outMaxX = 1440;
+        let outMinY = 250, outMaxY = 830;
+        let inMinX, inMaxX;
+        let inMinY, inMaxY;
+        let sourceScale = 1;
+ 
+        let isSourceMoving = false;
+
+        let displayCaptureScene;
+        let displayCaptureSourceId;
+        
+        window.addEventListener('DOMContentLoaded', async (event) => {
+            //obs css added after page load
+            setTimeout(async () => {
+                displayXmin = Number(getComputedStyle(document.body).getPropertyValue('--display-x-min'));
+                displayXmax = Number(getComputedStyle(document.body).getPropertyValue('--display-x-max'));
+                displayYmin = Number(getComputedStyle(document.body).getPropertyValue('--display-y-min'));
+                displayYmax = Number(getComputedStyle(document.body).getPropertyValue('--display-y-max'));  
+                mouseOverlayNames = JSON.parse(getComputedStyle(document.body).getPropertyValue('--overlay-names'));  
+                
+                //get display dimensions
+                displayWidth = displayXmax - displayXmin;
+                displayHeight = displayYmax - displayYmin;
+                console.log(`displayWidth: ${displayWidth}, displayHeight: ${displayHeight}`);
+                console.log(`displayXmin: ${displayXmin}, displayXmax: ${displayXmax}, displayYmin: ${displayYmin}, displayYmax: ${displayYmax}`);
+            }, 100);
+        })
+
+        obs.on("Identified", async (data) => {
+            await obs.call("GetInputSettings", { inputName: "ScreenShare_HotKey_Settings"})
+            .then((result) => {
+                const hotkeys = JSON.parse(`{${result.inputSettings.text}}`);
+                console.log("Hotkeys from Settings Source:", hotkeys);
+                followMouseAndZoom_HK = hotkeys.followMouseAndZoom_HK;
+                followMouse_HK = hotkeys.followMouse_HK;
+                fullScreen_HK = hotkeys.fullScreen_HK;
+                toggleMouse_HK = hotkeys.toggleMouse_HK;
+                toggleHotkey_HK = hotkeys.toggleHotkey_HK;
+            });
+
+            //set display capture source name
+            displayCaptureScene = getComputedStyle(document.body).getPropertyValue('--display-capture-scene-name');
+            displayCaptureSourceId = getComputedStyle(document.body).getPropertyValue('--display-capture-source-name');
+
+            // get scene item id for display capture source
+            displayCaptureSourceId = await getSceneId(displayCaptureScene, displayCaptureSourceId); 
+            displayCaptureSourceId = displayCaptureSourceId['sceneItemId'];
+
+            obs.call("SetInputSettings", {
+                inputName: 'keyHotkey',
+                inputSettings: {
+                    text: fullScreen_HK,
+                }
+            });
+            
+        });
+        
+        async function getSceneId(Scene, Source) {
+            return await obs.call("GetSceneItemId", { sceneName: Scene, sourceName: Source})
+        }
+
+        </script>
+
+    <script id="InputRouter">
+        //on obs text source settings change
+        obs.on("InputSettingsChanged", async function (event) {
+            // console.log(event);
+            switch (event.inputName) {
+                case 'MouseLocation':
+                    //-- Get the current mouse position
+                    const mousePosition = event.inputSettings.text.split(" ");
+                    if (isMacOS()) {
+                        // Perform macOS-specific mouse position adjustments
+                        mousePositionMapped = await mapNumRange_MacOS(mousePosition, displayXmin, displayXmax, displayYmin, displayYmax, 0, 0, displayWidth, displayHeight)
+                        //console.log(Math.round(Number(mousePositionMapped[0])), Math.round(Number(mousePositionMapped[1])));
+                        mousePosX = Math.round(Number(mousePositionMapped[0]));
+                        mousePosY = Math.round(Number(mousePositionMapped[1]));
+                    } else {
+                        // console.log("The user is not on macOS.");
+                        // Perform actions for other operating systems
+                        const mousePositionMapped = await mapNumRange(mousePosition, displayXmin, displayXmax, displayYmin, displayYmax, 0, 0, displayWidth, displayHeight)
+                        // console.log(Number(mousePositionMapped[0]),Number(mousePositionMapped[1]));
+                        mousePosX = Math.round(Number(mousePositionMapped[0]));
+                        mousePosY = Math.round(Number(mousePositionMapped[1]));
+                    }
+ 
+                    mouseCoordinates = [mousePosX, mousePosY];
+                    
+                    //print mouse position to text source
+                    // obs.call("SetInputSettings", {
+                    //     inputName: 'mouseDisplay1',
+                    //     inputSettings: {
+                    //         text: `${mousePosX} ${mousePosY}`,
+                    //     }
+                    // });
+
+                    if(viewMode === "zoomAndFollowMouse"){
+                        zoomAndFollowMouse(mouseCoordinates);
+                        break;
+                    }
+                    if(viewMode === "followMouse"){
+                        //isMaskMoving = true;
+                        followMouse(mouseCoordinates);
+                        break;
+                    }
+                    if(viewMode === "fullScreen"){
+                        break;
+                    }
+                    break;
+                    
+                case 'keyHotkey':
+                //console.log(event);
+                switch (event.inputSettings.text) {
+                    case ' ':
+                        break;
+                    // case followMouseAndZoom_HK: 
+                    //     zoomAndFollowMouse(mouseCoordinates)
+                    //     break;
+                    case followMouse_HK:
+                        followMouse(mouseCoordinates)
+                        break;
+                    case fullScreen_HK:
+                        fullScreen();
+                        break;
+                    case toggleMouse_HK:
+                        toggleSource('scene|||Screen Share','Input Mouse Overlay')
+                        break;
+                    case toggleHotkey_HK:
+                        toggleSource('scene|||Screen Share','Input Hotkeys')
+                        break;
+                    }
+                default:
+                    break;ƒ
+                    }
+                })
+
+        function isMacOS() {
+            return navigator.userAgent.indexOf('Mac OS X') !== -1;
+        }
+
+        async function mapNumRange(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
+            const mappedX = ((num[0] - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
+            const mappedY = (num[1] - inMinY) * (outMaxY - outMinY) / (inMaxY - inMinY) + outMinY;
+            return [Number(mappedX.toFixed(0)), Number(mappedY.toFixed(0))];
+        }
+
+        //Map a decreasing range to an increasing range.
+        // MacOS has origin at bottom left, the rest have origin at top left.
+        async function mapNumRange_MacOS(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
+            const mappedX = (num[0] - inMinX) * (outMaxX - outMinX) / (inMaxX - inMinX) + outMinX;
+            const mappedY = outMinY + (outMaxY - outMinY) * ((inMaxY - num[1]) / (inMaxY - inMinY));
+            return [mappedX, mappedY];
+
+        //Decreasing range to increasing range.
+        async function mapNumRange_decreaseToIncrease(num, inMin, inMax, outMin, outMax){
+            const mapped = outMin + (outMax - outMin) * ((inMax - num) / (inMax - inMin));
+            // console.log("mapped", mapped, "num", num);
+            return mapped;
+        }
+
+        //Increasing range to increasing range.
+        async function mapNumRange_increaseToIncrease(num, inMin, inMax, outMin, outMax){
+            const mapped = ((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+            // console.log("mapped", mapped, "num", num);
+            return mapped;
+        }
+        
+        }
+    </script>
+
+    <script id="ScreenShareFunctions">
+        //full screen
+        function fullScreen() {
+            console.log("full screen")
+            viewMode = 'fullScreen';
+
+            obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
+            //css variables
+            
+            const maskPosition = document.querySelector(':root');
+            maskPosition.style.setProperty('--left', `0`);           
+            maskPosition.style.setProperty('--top', `0`);
+            // maskPosition.style.setProperty('--bottom', '0');
+            // maskPosition.style.setProperty('--right', '0');
+            maskPosition.style.setProperty('--width', '100%');
+            maskPosition.style.setProperty('--height', '100%');
+            // maskPosition.style.setProperty('--border-style', 'solid');
+            // maskPosition.style.setProperty('--border-width', '0px');
+            // maskPosition.style.setProperty('--border-radius', '24px');
+            // // maskPosition.style.setProperty('--transform-perspective', '1500px');
+            // // maskPosition.style.setProperty('--transform-rotate-y', '15deg');
+            // maskPosition.style.setProperty('--filter-opacity', '100%');
+            // maskPosition.style.setProperty('--filter-drop-shadow-color', 'rgba(0, 0, 0, 50.5)');
+            // maskPosition.style.setProperty('--filter-drop-shadow-offset-x', '30px');
+            // maskPosition.style.setProperty('--filter-drop-shadow-offset-y', '21px');
+            // maskPosition.style.setProperty('--filter-drop-shadow-blur', '40px');
+
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": 1080,
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": 1920,
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": 0,
+                "positionY": 0,
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+            setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+        }
+
+        //f15 follow mouse
+
+        async function followMouse(coordinates){
+            //initialize follow mouse mode
+            if(viewMode != 'followMouse'){
+                viewMode = 'followMouse';
+                // sceneForegrounds[currentScene]["viewMode"] = 'followMouse';
+                // sourceHeight = Number(displayHeight) * 0.33;
+                // sourceWidth = sourceHeight * 1.7777778
+                // //Set mouseBoundary variables l,r,t,b
+                // mouseBoundaryLeft = 0,
+                // mouseBoundaryRight = 0,
+                // mouseBoundaryTop = 0,
+                // mouseBoundaryBottom = 0
+
+                // //css variables
+                // const maskPosition = document.querySelector(':root');
+                // maskPosition.style.setProperty('--top',' 100px');
+                // maskPosition.style.setProperty('--left',' 100px');
+                // maskPosition.style.setProperty('--bottom',' 0');
+                // maskPosition.style.setProperty('--right',' 0');
+                // maskPosition.style.setProperty('--height',`${sourceHeight}px`);
+                // maskPosition.style.setProperty('--width',`${sourceWidth}px`); /* 16','9 Aspect Ratio */
+                // maskPosition.style.setProperty('--border-style',' solid');
+                // maskPosition.style.setProperty('--border-width',' 0px');
+                // maskPosition.style.setProperty('--border-radius',' 24px');
+                // maskPosition.style.setProperty('--transform-perspective',' 1500px');
+                // maskPosition.style.setProperty('--transform-rotate-y',' 0deg');
+                // maskPosition.style.setProperty('--filter-opacity',' 100%'); 
+                // maskPosition.style.setProperty('--filter-drop-shadow-color',' rgba(0, 0, 0, 50.5);');
+                // maskPosition.style.setProperty('--filter-drop-shadow-offset-x',' 30px');
+                // maskPosition.style.setProperty('--filter-drop-shadow-offset-y',' 21px');
+                // maskPosition.style.setProperty('--filter-drop-shadow-blur',' 40px');
+
+                obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+                });
+                
+                // console.log("boundsWidth", displayWidth, "boundsHeight", displayHeight);
+                Object.assign(displayCaptureSourceTransform, {
+                    "alignment": 5,
+                    "boundsAlignment": 0,
+                    "boundsHeight": Number(displayHeight),
+                    "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                    "boundsWidth": Number(displayWidth),
+                    "cropBottom": 0,
+                    "cropLeft": 0,
+                    "cropRight": 0,
+                    "cropToBounds": false,
+                    "cropTop": 0,
+                    "height": displayHeight,
+                    "positionX": 0,
+                    "positionY": 0,
+                    "rotation": 0,
+                    "scaleX": 1,
+                    "scaleY": 1,
+                    "sourceHeight": displayHeight,
+                    "sourceWidth": displayWidth,
+                    "width": displayWidth
+                });
+                setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);               
+            }
+            
+            // const mousePositionInScene = await mapNumRange(coordinates, 
+            //     displayXmin, displayXmax, displayYmin, displayYmax, 
+            //     displayCaptureSourceTransform.positionX, displayCaptureSourceTransform.positionY, displayCaptureSourceTransform.positionX + 1920, displayCaptureSourceTransform.positionY + 1080);
+            //     displayCaptureSourceTransform.positionX, displayCaptureSourceTransform.positionY, displayCaptureSourceTransform.positionX + 1920, displayCaptureSourceTransform.positionY + 1080);
+            //     mapNumRange()
+            //     console.log("mousePositionInScene", mousePositionInScene);
+            // mouseX = Number(mousePositionInScene[0]);
+            // mouseY = Number(mousePositionInScene[1]);
+
+            mouseX = Number(coordinates[0]);
+            mouseY = Number(coordinates[1]);
+
+                        //print mouse position to text source
+        obs.call("SetInputSettings", {
+            inputName: 'zoomDisplay',
+            inputSettings: {
+                text: `${mouseX} ${mouseY}
+${displayXmin} ${displayXmax}
+${displayYmin} ${displayYmax}
+${displayZoomXmin} ${displayZoomXmax}
+${displayZoomYmin} ${displayZoomYmax}
+${sourceWidth} ${sourceHeight}
+${boundarySize}
+${mouseBoundaryLeft} ${mouseBoundaryRight} ${mouseBoundaryTop} ${mouseBoundaryBottom}
+${displayBoundary.Left} ${displayBoundary.Right} ${displayBoundary.Top} ${displayBoundary.Bottom}
+`,
+            }
+        });
+
+            // console.log("coordinates FollowMouse()",coordinates, mouseBoundaryLeft, mouseBoundaryRight, mouseBoundaryTop, mouseBoundaryBottom)
+            
+            //if mouse not in boundary area
+            // if(((mouseX < mouseBoundaryLeft) || (mouseX > mouseBoundaryRight)) || ((mouseY < mouseBoundaryTop) || (mouseY > mouseBoundaryBottom))){
+            //     //Set mouseBoundary variables l,r,t,b
+            //     //check if mouse is near mask edge X, Y
+            //     if((mouseX - (sourceWidth/2)) < displayXmin){
+            //         mouseX = (displayXmin + (sourceWidth/2));
+            //     }
+            //     if((mouseX + (sourceWidth/2)) > displayXmax){
+            //         mouseX = displayXmax - (sourceWidth/2);
+            //     }
+            //     if((mouseY - (sourceHeight/2)) < displayYmin){
+            //         mouseY = displayYmin + (sourceHeight/2);
+            //     }
+            //     if((mouseY + (sourceHeight/2)) > displayYmax){
+            //         mouseY = (displayYmax - (sourceHeight/2));
+            //     }
+                
+            //     mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
+            //     mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
+            //     mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
+            //     mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
+
+            //     const maskPosition = document.querySelector(':root');
+            //     maskPosition.style.setProperty('--left', `${mouseBoundaryLeft}px`);
+            //     maskPosition.style.setProperty('--top', `${mouseBoundaryTop}px`);
+            //     // maskPosition.style.setProperty('--width', sourceWidth + 'px');
+            //     // maskPosition.style.setProperty('--height', `${sourceHeight}px`);
+            //     // setTimeout(() => {
+            //         //     isMaskMoving = false;
+            //         // }, 500); // Reset after 500ms
+                    
+                // }
+
+            // console.log(mouseY, displayBoundary.Bottom)
+            if(!isSourceMoving){
+                //check if mouse is near background source edge displayXmax, displayYmax
+                if(mouseY < Number(displayBoundary.Top)){
+                    
+                    console.log("move up")
+                    const positionY = clamp(displayCaptureSourceTransform.positionY + (displayBoundary.Height/2), 1080 - displayYmax, 0)
+                    
+                    //call move up function
+                    isSourceMoving = true
+                    moveSourceUp(positionY.toFixed(0));
+                    
+                    displayBoundary.Top = clamp(Number(displayBoundary.Top) - Number((displayBoundary.Height/2)),0, displayHeight - displayBoundary.Height);
+                    displayBoundary.Bottom = Number(displayBoundary.Top) + Number(displayBoundary.Height);
+                    
+                    mouseOverlayNames.forEach(async (overlay) => {
+                        // console.log("overlay", overlay)
+                        // get scene item id for mouse overlay source
+                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
+                        // console.log("sourceId", sourceId)
+                        sourceId = sourceId['sceneItemId'];
+                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
+                    });
+                    return;
+                }
+                if(mouseY > Number(displayBoundary.Bottom)){
+                    
+                    console.log("move down")
+                    const positionY = clamp(displayCaptureSourceTransform.positionY - (displayBoundary.Height/2), 1080 - displayYmax, 0)
+                    //call move down function
+                    isSourceMoving = true
+                    moveSourceDown(positionY.toFixed(0));
+                    
+                    displayBoundary.Bottom = clamp(Number(displayBoundary.Bottom) + Number((displayBoundary.Height/2)), displayBoundary.Height, displayHeight);
+                    displayBoundary.Top = Number(displayBoundary.Bottom) - Number(displayBoundary.Height);
+                    
+                    mouseOverlayNames.forEach(async (overlay) => {
+                        // console.log("overlay", overlay)
+                        // get scene item id for mouse overlay source
+                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
+                        // console.log("sourceId", sourceId)
+                        sourceId = sourceId['sceneItemId'];
+                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
+                    });
+                    return;
+                }
+                if(mouseX < Number(displayBoundary.Left)){
+                    console.log("move left")
+                    const positionX = clamp(displayCaptureSourceTransform.positionX + (displayBoundary.Width/2), 0 - displayXmax, 0)
+                    
+                    //call move left function
+                    isSourceMoving = true
+                    moveSourceLeft(positionX.toFixed(0));
+
+                    displayBoundary.Left = clamp(Number(displayBoundary.Left) - Number((displayBoundary.Width/2)),0, displayWidth - displayBoundary.Width);
+                    displayBoundary.Right = Number(displayBoundary.Left) + Number(displayBoundary.Width);
+                    
+                    mouseOverlayNames.forEach(async (overlay) => {
+                        // console.log("overlay", overlay)
+                        // get scene item id for mouse overlay source
+                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
+                        // console.log("sourceId", sourceId)
+                        sourceId = sourceId['sceneItemId'];
+                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
+                    });
+                    return;
+                }            
+                if(mouseX > Number(displayBoundary.Right)){
+                    console.log("move right")
+                    const positionX = clamp(displayCaptureSourceTransform.positionX - (displayBoundary.Width/2), 1920 - displayXmax, 0)
+                    
+                    //call move right function
+                    isSourceMoving = true       
+                    moveSourceRight(positionX.toFixed(0));  
+                    
+                    displayBoundary.Right = clamp(Number(displayBoundary.Right) + Number((displayBoundary.Width/2)), displayBoundary.Width, displayWidth);
+                    displayBoundary.Left = Number(displayBoundary.Right) - Number(displayBoundary.Width);
+                    
+                    mouseOverlayNames.forEach(async (overlay) => {
+                        // console.log("overlay", overlay)
+                        // get scene item id for mouse overlay source
+                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
+                        // console.log("sourceId", sourceId)
+                        sourceId = sourceId['sceneItemId'];
+                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
+                    });
+                    return;
+                }
+            }
+        }
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(value, max));
+    }
+        
+    //zoom region
+    function zoomAndFollowMouse(coordinates){
+        //initialize follow mouse mode
+        if(viewMode != 'zoomAndFollowMouse'){
+            viewMode = 'zoomAndFollowMouse';
+            
+            // sceneForegrounds[currentScene]["viewMode"] = 'zoomAndFollowMouse'
+            sourceHeight = displayHeight;
+            sourceWidth = displayWidth
+            
+            displayZoomScale = 2;
+            displayZoomYmax = displayHeight * displayZoomScale;
+            displayZoomXmax = (displayHeight * displayZoomScale)*1.7777778;    ;
+            //Set mouseBoundary variables l,r,t,b
+            mouseBoundaryLeft = 0,
+            mouseBoundaryRight = 0,
+            mouseBoundaryTop = 0,
+            mouseBoundaryBottom = 0
+
+            //css variables
+            const maskPosition = document.querySelector(':root');
+            maskPosition.style.setProperty('--top',' 0px');
+            maskPosition.style.setProperty('--left',' 0px');
+            maskPosition.style.setProperty('--bottom',' 0');
+            maskPosition.style.setProperty('--right',' 0');
+            maskPosition.style.setProperty('--height',`${sourceHeight}px`);
+            maskPosition.style.setProperty('--width',`${sourceWidth}px`); /* 16','9 Aspect Ratio */
+            maskPosition.style.setProperty('--border-style',' solid');
+            maskPosition.style.setProperty('--border-width',' 0px');
+            maskPosition.style.setProperty('--border-radius',' 24px');
+            maskPosition.style.setProperty('--transform-perspective',' 1500px');
+            maskPosition.style.setProperty('--transform-rotate-y',' 0deg');
+            maskPosition.style.setProperty('--filter-opacity',' 100%'); 
+            maskPosition.style.setProperty('--filter-drop-shadow-color',' rgba(0, 0, 0, 50.5);');
+            maskPosition.style.setProperty('--filter-drop-shadow-offset-x',' 30px');
+            maskPosition.style.setProperty('--filter-drop-shadow-offset-y',' 21px');
+            maskPosition.style.setProperty('--filter-drop-shadow-blur',' 40px');
+
+            obs.call("SetInputSettings", {
+                inputName: 'view mode',
+                inputSettings: {
+                    text: viewMode,
+                }
+            });
+
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": displayYmax,
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": displayXmax,
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": 0,
+                "positionY": 0,
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+            setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+        }
+        mouseX = Number(coordinates[0]);
+        mouseY = Number(coordinates[1]);
+
+        // if mouse not in boundary area
+        if(((mouseX > displayXmin) || (mouseX < displayXmax)) || ((mouseY > displayYmin) || (mouseY < displayYmax))){
+            //Set mouseBoundary variables l,r,t,b
+            //check if mouse is near edge X, Y
+            if((mouseX <displayXmin)){
+                mouseX = (displayXmin);
+                // mouseX = (displayXmin + (sourceWidth/2));
+            }
+            if(mouseX > displayXmax){
+                mouseX = (displayXmax);
+                // mouseX = (displayXmax - (sourceWidth/2));
+            }
+            // if(mouseY < displayYmin){
+            //     mouseY = (displayYmin);
+            // }
+            // if(mouseY > displayYmax){
+            //     mouseY = (displayYmax);
+            // }
+            
+            mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
+            mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
+            mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
+            mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
+            // // console.log(Number(mouseBoundaryLeft),Number(mouseBoundaryRight),Number(mouseBoundaryTop),Number(mouseBoundaryBottom)) 
+            // console.log(Number(mouseX),Number(mouseY))
+
+            const mouseBoundary = {
+                mouseBoundaryLeft: mouseBoundaryLeft,
+                mouseBoundaryRight: mouseBoundaryRight,
+                mouseBoundaryTop: mouseBoundaryTop,
+                mouseBoundaryBottom: mouseBoundaryBottom
+            };
+                
+console.log("ZoomAndFollowMouse", mouseX, mouseY, displayZoomXmax, displayZoomYmax);
+            Object.assign(displayCaptureSourceTransform, {
+                "alignment": 5,
+                "boundsAlignment": 0,
+                "boundsHeight": displayHeight * displayZoomScale,
+                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                "boundsWidth": (displayHeight * displayZoomScale) * 1.7777778,
+                "cropBottom": 0,
+                "cropLeft": 0,
+                "cropRight": 0,
+                "cropToBounds": false,
+                "cropTop": 0,
+                "height": displayHeight,
+                "positionX": Number(mouseX),
+                "positionY": Number(mouseY),
+                "rotation": 0,
+                "scaleX": 1,
+                "scaleY": 1,
+                "sourceHeight": displayHeight,
+                "sourceWidth": displayWidth,
+                "width": displayWidth
+            });
+        setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+// 
+        }
+    }
+
+    function setSourceTransform(sceneName, sourceId, transform) {
+        obs.call("SetSceneItemTransform", {
+            sceneName: sceneName,
+            sceneItemId: sourceId,
+            sceneItemTransform: transform
+        });
+    }
+
+
+// #region Future Functions
+function moveSourceDown(targetPositionY){
+    const currentPositionY = Number(displayCaptureSourceTransform.positionY.toFixed(0));
+    const newPositionY = Math.ceil(currentPositionY + ((targetPositionY - currentPositionY) * 0.3));
+    console.log("cy",currentPositionY,"newPositionY", newPositionY, "targetPositionY", targetPositionY )
+    
+    Object.assign(displayCaptureSourceTransform, {
+        "positionY": newPositionY
+    });
+    
+    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+    console.log(newPositionY <= Number(targetPositionY))
+    if(newPositionY <= targetPositionY || currentPositionY === newPositionY){ 
+        console.log("stop moving")
+        isSourceMoving = false;
+        return;
+    }else{
+        window.requestAnimationFrame( () => moveSourceDown(targetPositionY));
+    }
+}
+
+function moveSourceUp(targetPositionY){
+    const currentPositionY = Number(displayCaptureSourceTransform.positionY.toFixed(0));
+    const newPositionY = Math.ceil(currentPositionY + ((targetPositionY - currentPositionY) * 0.3));
+    console.log("cy",currentPositionY,"newPositionY", newPositionY, "targetPositionY", targetPositionY )
+    
+    Object.assign(displayCaptureSourceTransform, {
+        "positionY": newPositionY
+    });
+    
+    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+    console.log(newPositionY <= Number(targetPositionY))
+    if(newPositionY >= targetPositionY || currentPositionY === newPositionY){ 
+        console.log("stop moving")
+        isSourceMoving = false;
+        return;
+    }else{
+        window.requestAnimationFrame( () => moveSourceUp(targetPositionY));
+    }
+}
+
+function moveSourceLeft(targetPosition){
+    const currentPosition = Number(displayCaptureSourceTransform.positionX.toFixed(0));
+    const newPosition = Math.ceil(currentPosition + ((targetPosition - currentPosition) * 0.3));
+    console.log("c",currentPosition,"newPosition", newPosition, "targetPosition", targetPosition)
+    
+    Object.assign(displayCaptureSourceTransform, {
+        "positionX": newPosition
+    });
+    
+    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+    console.log(newPosition <= Number(targetPosition))
+    if(newPosition >= targetPosition || currentPosition === newPosition){ 
+        console.log("stop moving")
+        isSourceMoving = false;
+        return;
+    }else{
+        window.requestAnimationFrame( () => moveSourceLeft(targetPosition));
+    }
+}
+
+function moveSourceRight(targetPosition){
+    const currentPosition = Number(displayCaptureSourceTransform.positionX.toFixed(0));
+    const newPosition = Math.ceil(currentPosition + ((targetPosition - currentPosition) * 0.3));
+    console.log("c",currentPosition,"newPosition", newPosition, "targetPosition", targetPosition )
+    
+    Object.assign(displayCaptureSourceTransform, {
+        "positionX": newPosition
+    });
+    
+    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
+    console.log(newPosition <= Number(targetPosition))
+    if(newPosition <= targetPosition || currentPosition === newPosition){ 
+        console.log("stop moving")
+        isSourceMoving = false;
+        return;
+    }else{
+        window.requestAnimationFrame( () => moveSourceRight(targetPosition));
+    }
+}
+
+function lerp(v0, v1, t){
+    console.log("lerp", v0, v1, t)
+    return v0 * (1 - t) + v1 * t;
+}
+
+function ease_in_out(t){
+    t = t * 2
+    if(t < 1){
+        return 0.5 * t * t * t
+    }else{
+        t = t - 2
+        return 0.5 * (t * t * t + 2)
+    }
+}
+
+
+// Change the shape around the mouse
+function setShape(followShape){}
+
+function setShapeSize(amount){
+    // follow size increase
+    
+    // follow size decrease
+}
+    </script>
+</body>
+</html>

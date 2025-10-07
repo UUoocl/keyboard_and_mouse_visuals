@@ -1,0 +1,15 @@
+{
+  "pos": { "x": 0.0, "y": 0.0 },
+  "scale": { "x": 1.0, "y": 1.0 },
+  "rot": 0.0,
+  "alignment": 5,
+  "bounds_type": 0,
+  "bounds": { "x": 0.0, "y": 0.0 },
+  "bounds_alignment": 0,
+  "top": 0,
+  "bottom": 0,
+  "left": 0,
+  "right": 0
+}
+
+

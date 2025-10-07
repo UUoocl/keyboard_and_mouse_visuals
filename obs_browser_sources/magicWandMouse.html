@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -11,14 +11,15 @@
     <script src="js/obsConnect.js"></script>
     <script src="obs_webSocket_details/websocketDetails.js"></script>
     <script>
-      let mousePosX = 0, mousePosY = 0;
       let viewMode, mouseBoundary;
       let outMinX = 144, outMaxX = 1776;
       let outMinY = 80, outMaxY = 1000;
       let inMinX, inMaxX;
       let inMinY, inMaxY;
+      let mousePosX = 0, mousePosY = 0;
       let mouseOffsetX = 0;
       let mouseOffsetY = 0; 
+      let displayWidth, displayHeight;
       
       window.addEventListener("load", (event) => {
         //wait for obs to add the css variables
@@ -26,6 +27,7 @@
           mouseOffsetX = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-x'));
           mouseOffsetY = Number(getComputedStyle(document.body).getPropertyValue('--mouse-offset-y'))
           console.log(`mouseOffsetX: ${mouseOffsetX}, mouseOffsetY: ${mouseOffsetY}`);
+        
         }, 100);
       });
 
@@ -50,7 +52,11 @@
             //   mousePosition[0] =  (((mouseOffsetX + mousePosition[0]) - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
             //   mousePosition[1] =  (((mouseOffsetY + mousePosition[1]) - inMinY) * (outMaxY - outMinY)) / (inMaxY - inMinY) + outMinY;
             // }
-            mousePosX = Number(mousePosition[0])
+            if(mouseOffsetX != 0){
+              mousePosX = Number(mouseOffsetX) - Number(mousePosition[0])
+            } else{
+              mousePosX = Number(mousePosition[0]); 
+            }
             if(mouseOffsetY != 0){
               mousePosY = Number(mouseOffsetY) -  Number(mousePosition[1])
             } else {
