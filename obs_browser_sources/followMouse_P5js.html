@@ -64,16 +64,6 @@
             
             sketchMonitors.display();
             sketchMonitors.update();
-            // sketchMonitors.updateOBS();
-            //  rect(0,0,400, 300)
-            // stroke(0,0,0);
-            // fill(255,0,0,100)
-            // noLoop()
-            // rect(50, 50, 400, 225);
-            // sourceRectangle.update();
-            // sourceRectangle.display();
-
-            
         }
 
     </script>
@@ -97,6 +87,17 @@
                 }
 
                 this.monitorsBoundary = this.getAllDisplaysSize();
+                obs.call("SetInputSettings", {
+                    inputName: 'Monitor Boundary',
+                    inputSettings: {
+                        text: `"Width": ${this.monitorsBoundary.boundaryWidth}, 
+"Height": ${this.monitorsBoundary.boundaryHeight}, 
+"MinX": ${this.monitorsBoundary.boundaryMinX}, 
+"MaxX": ${this.monitorsBoundary.boundaryMaxX}, 
+"MinY": ${this.monitorsBoundary.boundaryMinY}, 
+"MaxY": ${this.monitorsBoundary.boundaryMaxY}`,
+                    }
+                }); 
 
                 this.sketchScale();
             }
@@ -193,7 +194,7 @@
 
         class SketchMonitors {
             constructor() {
-                this.zoom = 5;
+                this.zoom = 1;
                 this.boundary = { x: 0, y: 0, width: 400 * this.zoom, height: ((400 * this.zoom) * monitors.monitorsBoundary.boundaryRatio)};
                 this.obsBoundary = { x: 0, y: 0, width: 1920 * this.zoom, height: ((1920 * this.zoom) * monitors.monitorsBoundary.boundaryRatio)}
                 this.scaleX = this.boundary.width / monitors.monitorsBoundary.boundaryWidth;
@@ -204,7 +205,8 @@
                 this.mainHeight = monitors.mainHeight * this.scaleY;
                 this.sceneName = monitors.sceneName; 
                 this.sourceId = monitors.sourceId;   
-                this.displays = this.getDisplays(monitors.displays);  
+                this.displays = this.getDisplays(monitors.displays); 
+                this.overlays = this.getOverlays(); 
                 
                 //sketchViewport
                 this.viewport = {x: 0, y: 0, width: 400, height: 225, left: 0 , right: 400, top: 0, bottom: 225};
@@ -227,6 +229,48 @@
                 return displays;
             }
 
+            getOverlays(){
+                const overlays = [];
+                if(mouseOverlayNames.length > 0){
+                    mouseOverlayNames.forEach((key, index) => {
+                        console.log("overlay", key);
+                        const source = collection.scenes.Mouse_Overlay[key];
+                        overlays.push({
+                            name: source.sourceName,
+                            x: 0,
+                            y: 0,
+                            sourceWidth: source.inputSettings.width,
+                            sourceHeight: source.inputSettings.width * monitors.monitorsBoundary.boundaryRatio,
+                            sceneItemId: Number(source.sceneItemId)
+                        });
+
+                        //set initial overlay size to match display capture size
+                        obs.call("SetInputSettings", {
+                            inputName: overlays[index].name,
+                            inputSettings: {
+                                width: overlays[index].sourceWidth, 
+                                height: overlays[index].sourceHeight,
+                            }
+                        });
+
+                        obs.call("SetSceneItemTransform", {
+                            sceneName: "Mouse_Overlay", //this.sceneName,
+                            sceneItemId: overlays[index].sceneItemId,
+                            sceneItemTransform: {
+                                "positionX": this.obsBoundary.x,
+                                "positionY": this.obsBoundary.y,
+                                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                                "boundsWidth": map(overlays[index].sourceWidth, 0, overlays[index].sourceWidth, 0, this.obsBoundary.width),
+                                "boundsHeight": map(overlays[index].sourceHeight, 0, overlays[index].sourceHeight, 0, this.obsBoundary.height),
+                          }
+                        })
+                    });
+                }
+                return overlays;
+            }
+
+            
+
             display() {
                 //map xy to sketch scale
                 fill(0,0,255,50);
@@ -248,45 +292,68 @@
                 }); 
             }
             
-            update() {
-                if(((sketchMousePosX > this.viewport.right) || (sketchMousePosX < this.viewport.left)) 
-                || ((sketchMousePosY < this.viewport.top) || (sketchMousePosY > this.viewport.bottom))){
+            update() {                                          
+                const moveSpeed = 5
+                if(((sketchMousePosX + moveSpeed > this.viewport.right) || (sketchMousePosX - moveSpeed< this.viewport.left)) 
+                || ((sketchMousePosY - moveSpeed < this.viewport.top) || (sketchMousePosY + moveSpeed > this.viewport.bottom))){
                     
                     // console.log("move source")
                     //Set mouseBoundary variables l,r,t,b
                     //check if mouse is near edge X, Y
-                    if(sketchMousePosX <= this.viewport.left && (this.boundary.x <= 0)){
+                    if(sketchMousePosX + moveSpeed <= this.viewport.left && (this.boundary.x <= 0)){
                         console.log("move left")
-                        this.boundary.x += 1;
-                        this.obsBoundary.x += map(1, 0, this.boundary.width, 0, this.obsBoundary.width);
+                        this.boundary.x += moveSpeed;
+                        this.obsBoundary.x += map(moveSpeed, 0, this.boundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();
                     }
-                    if(sketchMousePosX + 1 >= this.viewport.right && (this.boundary.x + this.boundary.width) >= this.viewport.width){
+                    if(sketchMousePosX + moveSpeed >= this.viewport.right && (this.boundary.x + this.boundary.width) >= this.viewport.width){
                         console.log("move right")
-                        this.boundary.x -= 1;
-                        this.obsBoundary.x -= map(1, 0, this.boundary.width, 0, this.obsBoundary.width);
+                        this.boundary.x -= moveSpeed;
+                        this.obsBoundary.x -= map(moveSpeed, 0, this.boundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();  
        
                     }
-                    if(sketchMousePosY <= this.viewport.top && (this.boundary.y <= 0)){
+                    if(sketchMousePosY - moveSpeed <= this.viewport.top && (this.boundary.y <= 0)){
                         console.log("move up")
-                        this.boundary.y += 1;
-                        this.obsBoundary.y += map(1, 0, this.boundary.height, 0, this.obsBoundary.height);
+                        this.boundary.y += moveSpeed;
+                        this.obsBoundary.y += map(moveSpeed, 0, this.boundary.height, 0, this.obsBoundary.height);
                         this.updateOBS();
                     }
-                    if(sketchMousePosY >= this.viewport.bottom && (this.boundary.y + this.boundary.height) >= this.viewport.height){
+                    if(sketchMousePosY + moveSpeed >= this.viewport.bottom && (this.boundary.y + this.boundary.height) >= this.viewport.height){
                         console.log("move down")
-                        this.boundary.y -= 1;
-                        this.obsBoundary.y -= map(1, 0, this.boundary.height, 0, this.obsBoundary.height);
+                        this.boundary.y -= moveSpeed;
+                        this.obsBoundary.y -= map(moveSpeed, 0, this.boundary.height, 0, this.obsBoundary.height);
                         this.updateOBS();
                     }
-                    
-                    // mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
-                    // mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
-                    // mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
-                    // mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
-                    // this.boundary.x = sketchMousePosX;
-                    // this.boundary.y = sketchMousePosY; 
+                }
+            }
+
+            zoomUpdate(){
+                this.boundary.width = 400 * this.zoom;
+                this.boundary.height = ((400 * this.zoom) * monitors.monitorsBoundary.boundaryRatio);
+                this.obsBoundary.width = 1920 * this.zoom;
+                this.obsBoundary.height = ((1920 * this.zoom) * monitors.monitorsBoundary.boundaryRatio);
+                this.scaleX = this.boundary.width / monitors.monitorsBoundary.boundaryWidth;
+                this.scaleY = this.boundary.height / monitors.monitorsBoundary.boundaryHeight;
+                this.mainX = map(monitors.mainX, monitors.monitorsBoundary.boundaryMinX, monitors.monitorsBoundary.boundaryMaxX, 0, this.boundary.width);
+                this.mainY = map(monitors.mainY, monitors.monitorsBoundary.boundaryMinY, monitors.monitorsBoundary.boundaryMaxY, 0, this.boundary.height);
+                this.mainWidth = monitors.mainWidth * this.scaleX;
+                this.mainHeight = monitors.mainHeight * this.scaleY;
+                this.displays = this.getDisplays(monitors.displays);  
+                this.display();
+                this.updateOBS();
+
+                //update overlays
+                if(mouseOverlayNames.length > 0){
+                    mouseOverlayNames.forEach((overlay) => {
+                        setSourceTransform("displayCapture", overlay.sceneItemId, {
+                            "positionX": map(originalMouseX, monitors.monitorsBoundary.boundaryMinX, monitors.monitorsBoundary.boundaryMaxX, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
+                            "positionY": map(originalMouseY, monitors.monitorsBoundary.boundaryMinY, monitors.monitorsBoundary.boundaryMaxY, this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y),
+                            "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                            "boundsWidth": map(20, 0, monitors.monitorsBoundary.boundaryWidth, 0, this.obsBoundary.width),
+                            "boundsHeight": map(20, 0, monitors.monitorsBoundary.boundaryHeight, 0, this.obsBoundary.height),
+                        });
+                    });
                 }
             }
 
@@ -323,115 +390,17 @@
                 });
             }
         }
-
-        class ObsDisplays {
-            constructor() {
-                this.zoom = sketchMonitors.zoom;
-                this.boundary = { x: 0, y: 0, width: 1920 * this.zoom, height: ((1920 * this.zoom) * monitors.monitorsBoundary.boundaryRatio)};
-                this.scaleX = this.boundary.width / monitors.monitorsBoundary.boundaryWidth;
-                this.scaleY = this.boundary.height / monitors.monitorsBoundary.boundaryHeight;
-                this.mainX = map(sketchMonitors.mainX, sketchMonitors.boundary.x, sketchMonitors.boundary.x, 0, this.boundary.width);
-                this.mainY = map(monitors.mainY, monitors.monitorsBoundary.boundaryMinY, monitors.monitorsBoundary.boundaryMaxY, 0, this.boundary.height);
-                this.mainWidth = monitors.mainWidth * this.scaleX;
-                this.mainHeight = monitors.mainHeight * this.scaleY;
-                this.sceneName = monitors.sceneName; 
-                this.sourceId = monitors.sourceId;   
-                this.displays = this.getDisplays(monitors.displays);                
-            }   
-
-            //get the displays in the display capture scene
-            getDisplays(monitorDisplays){
-                const displays = [];
-                monitorDisplays.forEach((key) => {
-                    displays.push({
-                        name: key.name,
-                        x: map(key.x, monitors.monitorsBoundary.boundaryMinX, monitors.monitorsBoundary.boundaryMaxX, 0, this.boundary.width),
-                        y: map(key.y, monitors.monitorsBoundary.boundaryMinY, monitors.monitorsBoundary.boundaryMaxY, 0, this.boundary.height),
-                        width: key.width * this.scaleX,
-                        height: key.height * this.scaleY,
-                        sceneItemId: key.sceneItemId
-
-                    });
-                });
-                return displays;
-            }
-        }
-
-
-
     </script>
     
     <script id="OBS Initialization">
-        let viewMode = 'full screen', 
-        display1X,
-        display1Y,
-        display1Width,
-        display1Height,
-        mouseX,
+        let mouseX,
         mouseY,
-        mouseCoordinates = [0,0],
-        displayWidth, 
-        displayHeight, 
-        displayXmin = 0,
-        displayYmin = 0,
-        displayXmax,
-        displayYmax,
-        displayZoomXmin = 0,
-        displayZoomYmin = 0,
-        displayZoomXmax,
-        displayZoomYmax,
-        sourceFilterRadius = 1100,
-        sourceWidth,
-        sourceHeight,
-        sourceFilterZoom = 100,
-        boundarySize = 0.5, // (.01 to .5)
-        mouseBoundaryLeft = 0,
-        mouseBoundaryTop = 0,
-        mouseBoundaryBottom = 0,
-        mouseBoundaryRight = 0,
-        displayBoundary = {Left: 0, Right: 0, Top: 0, Bottom: 0},
         mouseOverlayNames;
-        displayCaptureSourceTransform = {
-            "alignment": 5,
-            "boundsAlignment": 0,
-            "boundsHeight": 1080,
-            "boundsType": "OBS_BOUNDS_SCALE_INNER",
-            "boundsWidth": 1920,
-            "cropBottom": 0,
-            "cropLeft": 0,
-            "cropRight": 0,
-            "cropToBounds": false,
-            "cropTop": 0,
-            "height": 1080,
-            "positionX": 0,
-            "positionY": 0,
-            "rotation": 0,
-            "scaleX": 1,
-            "scaleY": 1,
-            "sourceHeight": 1080,
-            "sourceWidth": 1920,
-            "width": 1920
-        };
 
-
-        let mouseBoundary;
-        let outMinX = 480, outMaxX = 1440;
-        let outMinY = 250, outMaxY = 830;
-        let inMinX, inMaxX;
-        let inMinY, inMaxY;
-        let sourceScale = 1;
         let mainMonitor={};
         let otherMonitors = [];
  
-        let isSourceMoving = false;
-
-        let displayCaptureScene;
-        let displayCaptureSourceId;
-        
-        window.addEventListener('DOMContentLoaded', async (event) => {
-            //obs css added after page load
-        })
-        
+        //set hotkey variables
         obs.on("Identified", async (data) => {
             await obs.call("GetInputSettings", { inputName: "ScreenShare_HotKey_Settings"})
             .then((result) => {
@@ -442,16 +411,14 @@
                 fullScreen_HK = hotkeys.fullScreen_HK;
                 toggleMouse_HK = hotkeys.toggleMouse_HK;
                 toggleHotkey_HK = hotkeys.toggleHotkey_HK;
+                zoomIn_HK = hotkeys.zoomIn_HK;
+                zoomOut_HK = hotkeys.zoomOut_HK;
             });
             
             //set display capture source name
             displayCaptureScene = getComputedStyle(document.body).getPropertyValue('--display-capture-scene-name');
             displayCaptureSourceId = getComputedStyle(document.body).getPropertyValue('--display-capture-source-name');
-            
-            // get scene item id for display capture source
-            // displayCaptureSourceId = await getSceneId(displayCaptureScene, displayCaptureSourceId); 
-            // displayCaptureSourceId = displayCaptureSourceId['sceneItemId'];
-            
+                        
             obs.call("SetInputSettings", {
                 inputName: 'keyHotkey',
                 inputSettings: {
@@ -464,35 +431,30 @@
                 //get display info from obs css variables
                 mainMonitor = getComputedStyle(document.body).getPropertyValue('--main-display-capture');
                 //if tracking multiple monitors, get other monitor names
-                // if(getComputedStyle(document.body).getPropertyValue('--display-capture-source-name').trim() !== ''){
+                if(getComputedStyle(document.body).getPropertyValue('--display-capture-source-name').trim() !== ''){
                     otherMonitors = JSON.parse(getComputedStyle(document.body).getPropertyValue('--display-capture-source-name'));
-                // }
+                }
 
                 //if using mouse overlays, get overlay names
                 mouseOverlayNames = JSON.parse(getComputedStyle(document.body).getPropertyValue('--overlay-names'));  
-                
-                console.log("mainMonitor", mainMonitor);
-                console.log("otherMonitors", otherMonitors);
-                console.log("mouseOverlayNames", mouseOverlayNames);
-                
+               
                 //obsCollection.js functions 
                 await getDisplayItems();
                 const collectionStatus = await getOBScollection()
-                console.log(collectionStatus);
-                console.log("collection", collection);    
+                
+                // load p5.js library
                 const loadP5 = new CustomEvent('loadP5Event')
                 window.dispatchEvent(loadP5);
             }, 100);
             
             window.addEventListener('loadP5Event', (e) => {
-                console.log("loadP5Event", e);
                 loadP5();
             }, false);
-
-            //create object of OBS collection(scenes and sources)
+            
         });
-  
+        
         async function getSceneId(Scene, Source) {
+            //create object of OBS collection(scenes and sources)
             return await obs.call("GetSceneItemId", { sceneName: Scene, sourceName: Source})
         }
         
@@ -536,34 +498,13 @@
                     originalMouseX = Number(mousePosition[0]);      
                     originalMouseY = Number(mousePosition[1]);
 
-                    //print mouse position to text source
-                    // obs.call("SetInputSettings", {
-                    //     inputName: 'Mapped Mouse Location',
-                    //     inputSettings: {
-                    //         text: `${mousePosX} ${mousePosY}`,
-                    //     }
-                    // });                    
-
                     mousePosX = mousePosition[0];
                     if (isMacOS()) {
                         // Perform macOS-specific mouse position adjustments
                         mousePosY = Math.round(map(mousePosition[1], monitors.mainY + monitors.mainHeight, monitors.mainY, 0, monitors.mainHeight))
-                        
-                        // mousePositionMapped = await mapNumRange_MacOS(mousePosition, monitors.mainX, monitors.mainX + monitors.mainWidth , monitors.mainY, monitors.mainY + monitors.mainHeight , 0, 0, 1920, 1200)
-                        //console.log(Math.round(Number(mousePositionMapped[0])), Math.round(Number(mousePositionMapped[1])));
-                        // mousePosX = Math.round(Number(mousePositionMapped[0]));
-                        // mousePosY = Math.round(Number(mousePositionMapped[1]));
                     } else {
                         mousePosY = Math.round(map(mousePosition[1], monitors.mainY, monitors.mainY + monitors.mainHeight, 0, monitors.mainHeight))
-                        // console.log("The user is not on macOS.");
-                        // Perform actions for other operating systems
-                        // const mousePositionMapped = await mapNumRange(mousePosition, displayXmin, displayXmax, displayYmin, displayYmax, 0, 0, displayWidth, displayHeight)
-                        // // console.log(Number(mousePositionMapped[0]),Number(mousePositionMapped[1]));
-                        // mousePosX = Math.round(Number(mousePositionMapped[0]));
-                        // mousePosY = Math.round(Number(mousePositionMapped[1]));
                     }
- 
-                    mouseCoordinates = [mousePosX, mousePosY];
                     
                     //print mouse position to text source
                     obs.call("SetInputSettings", {
@@ -572,20 +513,7 @@
                             text: `${mousePosX} ${mousePosY}`,
                         }
                     });
-
-                    if(viewMode === "zoomAndFollowMouse"){
-                        // zoomAndFollowMouse(mouseCoordinates);
-                        break;
-                    }
-                    if(viewMode === "followMouse"){
-                        //isMaskMoving = true;
-                        // followMouse(mouseCoordinates);
-                        break;
-                    }
-                    if(viewMode === "fullScreen"){
-                        break;
-                    }
-                    break;
+                   break;
                     
                 case 'keyHotkey':
                 //console.log(event);
@@ -593,10 +521,8 @@
                     case ' ':
                         break;
                     // case followMouseAndZoom_HK: 
-                    //     zoomAndFollowMouse(mouseCoordinates)
                     //     break;
                     case followMouse_HK:
-                        // followMouse(mouseCoordinates)
                         break;
                     case fullScreen_HK:
                         // fullScreen();
@@ -607,9 +533,20 @@
                     case toggleHotkey_HK:
                         // toggleSource('scene|||Screen Share','Input Hotkeys')
                         break;
-                    }
-                default:
-                    break;ƒ
+                    case zoomIn_HK:
+                        sketchMonitors.zoom += 0.2;
+                        sketchMonitors.zoomUpdate();
+                        break;
+                    case zoomOut_HK:
+                        if(sketchMonitors.zoom > 0.4){
+                            sketchMonitors.zoom -= 0.2;
+                            sketchMonitors.zoomUpdate();
+                        }
+                        // toggleSource('scene|||Screen Share','Input Hotkeys')
+                        break;
+                        default:
+                            break;
+                        }
                     }
                 })
 
@@ -617,455 +554,14 @@
             return navigator.userAgent.indexOf('Mac') !== -1;
         }
 
-        async function mapNumRange(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
-            const mappedX = ((num[0] - inMinX) * (outMaxX - outMinX)) / (inMaxX - inMinX) + outMinX;
-            const mappedY = (num[1] - inMinY) * (outMaxY - outMinY) / (inMaxY - inMinY) + outMinY;
-            return [Number(mappedX.toFixed(0)), Number(mappedY.toFixed(0))];
-        }
-
-        //Map a decreasing range to an increasing range.
-        // MacOS has origin at bottom left, the rest have origin at top left.
-        async function mapNumRange_MacOS(num, inMinX, inMaxX, inMinY, inMaxY, outMinX, outMinY, outMaxX, outMaxY){
-            const mappedX = (num[0] - inMinX) * (outMaxX - outMinX) / (inMaxX - inMinX) + outMinX;
-            const mappedY = outMinY + (outMaxY - outMinY) * ((inMaxY - num[1]) / (inMaxY - inMinY));
-            return [mappedX, mappedY];
-
-        //Decreasing range to increasing range.
-        async function mapNumRange_decreaseToIncrease(num, inMin, inMax, outMin, outMax){
-            const mapped = outMin + (outMax - outMin) * ((inMax - num) / (inMax - inMin));
-            // console.log("mapped", mapped, "num", num);
-            return mapped;
-        }
-
-        //Increasing range to increasing range.
-        async function mapNumRange_increaseToIncrease(num, inMin, inMax, outMin, outMax){
-            const mapped = ((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
-            // console.log("mapped", mapped, "num", num);
-            return mapped;
-        }
-        
-        }
-    </script>
-
-    <script id="ScreenShareFunctions">
-        //full screen
-        function fullScreen() {
-            console.log("full screen")
-            viewMode = 'fullScreen';
-
-            obs.call("SetInputSettings", {
-                inputName: 'view mode',
-                inputSettings: {
-                    text: viewMode,
-                }
+        function setSourceTransform(sceneName, sourceId, transform) {
+            obs.call("SetSceneItemTransform", {
+                sceneName: sceneName,
+                sceneItemId: sourceId,
+                sceneItemTransform: transform
             });
-
-            Object.assign(displayCaptureSourceTransform, {
-                "alignment": 5,
-                "boundsAlignment": 0,
-                "boundsHeight": 1080,
-                "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                "boundsWidth": 1920,
-                "cropBottom": 0,
-                "cropLeft": 0,
-                "cropRight": 0,
-                "cropToBounds": false,
-                "cropTop": 0,
-                "height": displayHeight,
-                "positionX": 0,
-                "positionY": 0,
-                "rotation": 0,
-                "scaleX": 1,
-                "scaleY": 1,
-                "sourceHeight": displayHeight,
-                "sourceWidth": displayWidth,
-                "width": displayWidth
-            });
-            // setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
         }
+        </script>
 
-        //f15 follow mouse
-
-        async function followMouse(coordinates){
-            //initialize follow mouse mode
-            if(viewMode != 'followMouse'){
-                viewMode = 'followMouse';
-
-                obs.call("SetInputSettings", {
-                inputName: 'view mode',
-                inputSettings: {
-                    text: viewMode,
-                }
-                });
-                
-                // console.log("boundsWidth", displayWidth, "boundsHeight", displayHeight);
-                Object.assign(displayCaptureSourceTransform, {
-                    "alignment": 5,
-                    "boundsAlignment": 0,
-                    "boundsHeight": Number(displayHeight),
-                    "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                    "boundsWidth": Number(displayWidth),
-                    "cropBottom": 0,
-                    "cropLeft": 0,
-                    "cropRight": 0,
-                    "cropToBounds": false,
-                    "cropTop": 0,
-                    "height": displayHeight,
-                    "positionX": 0,
-                    "positionY": 0,
-                    "rotation": 0,
-                    "scaleX": 1,
-                    "scaleY": 1,
-                    "sourceHeight": displayHeight,
-                    "sourceWidth": displayWidth,
-                    "width": displayWidth
-                });
-                setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);               
-            }
-
-            mouseX = Number(coordinates[0]);
-            mouseY = Number(coordinates[1]);
-
-                        //print mouse position to text source
-        obs.call("SetInputSettings", {
-            inputName: 'zoomDisplay',
-            inputSettings: {
-                text: `${mouseX} ${mouseY}
-${displayXmin} ${displayXmax}
-${displayYmin} ${displayYmax}
-${displayZoomXmin} ${displayZoomXmax}
-${displayZoomYmin} ${displayZoomYmax}
-${sourceWidth} ${sourceHeight}
-${boundarySize}
-${mouseBoundaryLeft} ${mouseBoundaryRight} ${mouseBoundaryTop} ${mouseBoundaryBottom}
-${displayBoundary.Left} ${displayBoundary.Right} ${displayBoundary.Top} ${displayBoundary.Bottom}
-`,
-            }
-        });
-
-            // console.log(mouseY, displayBoundary.Bottom)
-            if(!isSourceMoving){
-                //check if mouse is near background source edge displayXmax, displayYmax
-                if(mouseY < Number(displayBoundary.Top)){
-                    
-                    console.log("move up")
-                    const positionY = clamp(displayCaptureSourceTransform.positionY + (displayBoundary.Height/2), 1080 - displayYmax, 0)
-                    
-                    //call move up function
-                    isSourceMoving = true
-                    moveSourceUp(positionY.toFixed(0));
-                    
-                    displayBoundary.Top = clamp(Number(displayBoundary.Top) - Number((displayBoundary.Height/2)),0, displayHeight - displayBoundary.Height);
-                    displayBoundary.Bottom = Number(displayBoundary.Top) + Number(displayBoundary.Height);
-                    
-                    mouseOverlayNames.forEach(async (overlay) => {
-                        // console.log("overlay", overlay)
-                        // get scene item id for mouse overlay source
-                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
-                        // console.log("sourceId", sourceId)
-                        sourceId = sourceId['sceneItemId'];
-                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
-                    });
-                    return;
-                }
-                if(mouseY > Number(displayBoundary.Bottom)){
-                    
-                    console.log("move down")
-                    const positionY = clamp(displayCaptureSourceTransform.positionY - (displayBoundary.Height/2), 1080 - displayYmax, 0)
-                    //call move down function
-                    isSourceMoving = true
-                    moveSourceDown(positionY.toFixed(0));
-                    
-                    displayBoundary.Bottom = clamp(Number(displayBoundary.Bottom) + Number((displayBoundary.Height/2)), displayBoundary.Height, displayHeight);
-                    displayBoundary.Top = Number(displayBoundary.Bottom) - Number(displayBoundary.Height);
-                    
-                    mouseOverlayNames.forEach(async (overlay) => {
-                        // console.log("overlay", overlay)
-                        // get scene item id for mouse overlay source
-                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
-                        // console.log("sourceId", sourceId)
-                        sourceId = sourceId['sceneItemId'];
-                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
-                    });
-                    return;
-                }
-                if(mouseX < Number(displayBoundary.Left)){
-                    console.log("move left")
-                    const positionX = clamp(displayCaptureSourceTransform.positionX + (displayBoundary.Width/2), 0 - displayXmax, 0)
-                    
-                    //call move left function
-                    isSourceMoving = true
-                    moveSourceLeft(positionX.toFixed(0));
-
-                    displayBoundary.Left = clamp(Number(displayBoundary.Left) - Number((displayBoundary.Width/2)),0, displayWidth - displayBoundary.Width);
-                    displayBoundary.Right = Number(displayBoundary.Left) + Number(displayBoundary.Width);
-                    
-                    mouseOverlayNames.forEach(async (overlay) => {
-                        // console.log("overlay", overlay)
-                        // get scene item id for mouse overlay source
-                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
-                        // console.log("sourceId", sourceId)
-                        sourceId = sourceId['sceneItemId'];
-                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
-                    });
-                    return;
-                }            
-                if(mouseX > Number(displayBoundary.Right)){
-                    console.log("move right")
-                    const positionX = clamp(displayCaptureSourceTransform.positionX - (displayBoundary.Width/2), 1920 - displayXmax, 0)
-                    
-                    //call move right function
-                    isSourceMoving = true       
-                    moveSourceRight(positionX.toFixed(0));  
-                    
-                    displayBoundary.Right = clamp(Number(displayBoundary.Right) + Number((displayBoundary.Width/2)), displayBoundary.Width, displayWidth);
-                    displayBoundary.Left = Number(displayBoundary.Right) - Number(displayBoundary.Width);
-                    
-                    mouseOverlayNames.forEach(async (overlay) => {
-                        // console.log("overlay", overlay)
-                        // get scene item id for mouse overlay source
-                        let sourceId = await getSceneId('Mouse_Overlay', overlay); 
-                        // console.log("sourceId", sourceId)
-                        sourceId = sourceId['sceneItemId'];
-                        setSourceTransform('Mouse_Overlay', sourceId, displayCaptureSourceTransform);
-                    });
-                    return;
-                }
-            }
-        }
-
-    function clamp(value, min, max) {
-        return Math.max(min, Math.min(value, max));
-    }
-        
-    //zoom region
-    function zoomAndFollowMouse(coordinates){
-        //initialize follow mouse mode
-        if(viewMode != 'zoomAndFollowMouse'){
-            viewMode = 'zoomAndFollowMouse';
-            
-            // sceneForegrounds[currentScene]["viewMode"] = 'zoomAndFollowMouse'
-            sourceHeight = displayHeight;
-            sourceWidth = displayWidth
-            
-            displayZoomScale = 2;
-            displayZoomYmax = displayHeight * displayZoomScale;
-            displayZoomXmax = (displayHeight * displayZoomScale)*1.7777778;    ;
-            //Set mouseBoundary variables l,r,t,b
-            mouseBoundaryLeft = 0,
-            mouseBoundaryRight = 0,
-            mouseBoundaryTop = 0,
-            mouseBoundaryBottom = 0
-
-            //css variables
-            const maskPosition = document.querySelector(':root');
-            maskPosition.style.setProperty('--top',' 0px');
-            maskPosition.style.setProperty('--left',' 0px');
-            maskPosition.style.setProperty('--bottom',' 0');
-            maskPosition.style.setProperty('--right',' 0');
-            maskPosition.style.setProperty('--height',`${sourceHeight}px`);
-            maskPosition.style.setProperty('--width',`${sourceWidth}px`); /* 16','9 Aspect Ratio */
-            maskPosition.style.setProperty('--border-style',' solid');
-            maskPosition.style.setProperty('--border-width',' 0px');
-            maskPosition.style.setProperty('--border-radius',' 24px');
-            maskPosition.style.setProperty('--transform-perspective',' 1500px');
-            maskPosition.style.setProperty('--transform-rotate-y',' 0deg');
-            maskPosition.style.setProperty('--filter-opacity',' 100%'); 
-            maskPosition.style.setProperty('--filter-drop-shadow-color',' rgba(0, 0, 0, 50.5);');
-            maskPosition.style.setProperty('--filter-drop-shadow-offset-x',' 30px');
-            maskPosition.style.setProperty('--filter-drop-shadow-offset-y',' 21px');
-            maskPosition.style.setProperty('--filter-drop-shadow-blur',' 40px');
-
-            obs.call("SetInputSettings", {
-                inputName: 'view mode',
-                inputSettings: {
-                    text: viewMode,
-                }
-            });
-
-            Object.assign(displayCaptureSourceTransform, {
-                "alignment": 5,
-                "boundsAlignment": 0,
-                "boundsHeight": displayYmax,
-                "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                "boundsWidth": displayXmax,
-                "cropBottom": 0,
-                "cropLeft": 0,
-                "cropRight": 0,
-                "cropToBounds": false,
-                "cropTop": 0,
-                "height": displayHeight,
-                "positionX": 0,
-                "positionY": 0,
-                "rotation": 0,
-                "scaleX": 1,
-                "scaleY": 1,
-                "sourceHeight": displayHeight,
-                "sourceWidth": displayWidth,
-                "width": displayWidth
-            });
-            setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-        }
-        mouseX = Number(coordinates[0]);
-        mouseY = Number(coordinates[1]);
-
-        // if mouse not in boundary area
-        if(((mouseX > displayXmin) || (mouseX < displayXmax)) || ((mouseY > displayYmin) || (mouseY < displayYmax))){
-            //Set mouseBoundary variables l,r,t,b
-            //check if mouse is near edge X, Y
-            if((mouseX <displayXmin)){
-                mouseX = (displayXmin);
-                // mouseX = (displayXmin + (sourceWidth/2));
-            }
-            if(mouseX > displayXmax){
-                mouseX = (displayXmax);
-                // mouseX = (displayXmax - (sourceWidth/2));
-            }
-            // if(mouseY < displayYmin){
-            //     mouseY = (displayYmin);
-            // }
-            // if(mouseY > displayYmax){
-            //     mouseY = (displayYmax);
-            // }
-            
-            mouseBoundaryLeft = (mouseX-(sourceWidth*boundarySize)) 
-            mouseBoundaryRight = mouseX+((sourceWidth*boundarySize))
-            mouseBoundaryTop = mouseY-((sourceHeight*boundarySize))
-            mouseBoundaryBottom = mouseY+((sourceHeight*boundarySize))   
-            // // console.log(Number(mouseBoundaryLeft),Number(mouseBoundaryRight),Number(mouseBoundaryTop),Number(mouseBoundaryBottom)) 
-            // console.log(Number(mouseX),Number(mouseY))
-
-            const mouseBoundary = {
-                mouseBoundaryLeft: mouseBoundaryLeft,
-                mouseBoundaryRight: mouseBoundaryRight,
-                mouseBoundaryTop: mouseBoundaryTop,
-                mouseBoundaryBottom: mouseBoundaryBottom
-            };
-                
-console.log("ZoomAndFollowMouse", mouseX, mouseY, displayZoomXmax, displayZoomYmax);
-            Object.assign(displayCaptureSourceTransform, {
-                "alignment": 5,
-                "boundsAlignment": 0,
-                "boundsHeight": displayHeight * displayZoomScale,
-                "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                "boundsWidth": (displayHeight * displayZoomScale) * 1.7777778,
-                "cropBottom": 0,
-                "cropLeft": 0,
-                "cropRight": 0,
-                "cropToBounds": false,
-                "cropTop": 0,
-                "height": displayHeight,
-                "positionX": Number(mouseX),
-                "positionY": Number(mouseY),
-                "rotation": 0,
-                "scaleX": 1,
-                "scaleY": 1,
-                "sourceHeight": displayHeight,
-                "sourceWidth": displayWidth,
-                "width": displayWidth
-            });
-        setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-// 
-        }
-    }
-
-    function setSourceTransform(sceneName, sourceId, transform) {
-        obs.call("SetSceneItemTransform", {
-            sceneName: sceneName,
-            sceneItemId: sourceId,
-            sceneItemTransform: transform
-        });
-    }
-
-// #region Future Functions
-function moveSourceDown(targetPositionY){
-    const currentPositionY = Number(displayCaptureSourceTransform.positionY.toFixed(0));
-    const newPositionY = Math.ceil(currentPositionY + ((targetPositionY - currentPositionY) * 0.3));
-    console.log("cy",currentPositionY,"newPositionY", newPositionY, "targetPositionY", targetPositionY )
-    
-    Object.assign(displayCaptureSourceTransform, {
-        "positionY": newPositionY
-    });
-    
-    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-    console.log(newPositionY <= Number(targetPositionY))
-    if(newPositionY <= targetPositionY || currentPositionY === newPositionY){ 
-        console.log("stop moving")
-        isSourceMoving = false;
-        return;
-    }else{
-        window.requestAnimationFrame( () => moveSourceDown(targetPositionY));
-    }
-}
-
-function moveSourceUp(targetPositionY){
-    const currentPositionY = Number(displayCaptureSourceTransform.positionY.toFixed(0));
-    const newPositionY = Math.ceil(currentPositionY + ((targetPositionY - currentPositionY) * 0.3));
-    console.log("cy",currentPositionY,"newPositionY", newPositionY, "targetPositionY", targetPositionY )
-    
-    Object.assign(displayCaptureSourceTransform, {
-        "positionY": newPositionY
-    });
-    
-    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-    console.log(newPositionY <= Number(targetPositionY))
-    if(newPositionY >= targetPositionY || currentPositionY === newPositionY){ 
-        console.log("stop moving")
-        isSourceMoving = false;
-        return;
-    }else{
-        window.requestAnimationFrame( () => moveSourceUp(targetPositionY));
-    }
-}
-
-function moveSourceLeft(targetPosition){
-    const currentPosition = Number(displayCaptureSourceTransform.positionX.toFixed(0));
-    const newPosition = Math.ceil(currentPosition + ((targetPosition - currentPosition) * 0.3));
-    console.log("c",currentPosition,"newPosition", newPosition, "targetPosition", targetPosition)
-    
-    Object.assign(displayCaptureSourceTransform, {
-        "positionX": newPosition
-    });
-    
-    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-    console.log(newPosition <= Number(targetPosition))
-    if(newPosition >= targetPosition || currentPosition === newPosition){ 
-        console.log("stop moving")
-        isSourceMoving = false;
-        return;
-    }else{
-        window.requestAnimationFrame( () => moveSourceLeft(targetPosition));
-    }
-}
-
-function moveSourceRight(targetPosition){
-    const currentPosition = Number(displayCaptureSourceTransform.positionX.toFixed(0));
-    const newPosition = Math.ceil(currentPosition + ((targetPosition - currentPosition) * 0.3));
-    console.log("c",currentPosition,"newPosition", newPosition, "targetPosition", targetPosition )
-    
-    Object.assign(displayCaptureSourceTransform, {
-        "positionX": newPosition
-    });
-    
-    setSourceTransform(displayCaptureScene, displayCaptureSourceId, displayCaptureSourceTransform);
-    console.log(newPosition <= Number(targetPosition))
-    if(newPosition <= targetPosition || currentPosition === newPosition){ 
-        console.log("stop moving")
-        isSourceMoving = false;
-        return;
-    }else{
-        window.requestAnimationFrame( () => moveSourceRight(targetPosition));
-    }
-}
-
-// Change the shape around the mouse
-function setShape(followShape){}
-
-function setShapeSize(amount){
-    // follow size increase
-    
-    // follow size decrease
-}
-    </script>
 </body>
 </html>

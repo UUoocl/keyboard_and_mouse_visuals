@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    
+  </head>
+  <body>
+    <main>
+    </main>
+    <script src="lib/obs-ws.js"></script>
+    <script src="js/obsConnect.js"></script>
+    <script src="js/obsCollection.js"></script>
+    <script src="obs_webSocket_details/websocketDetails.js"></script>
+    <script>
+      let mousePosX = 0, mousePosY = 0;
+      let monitorsBoundary;
+      
+      //get css variables on load
+      obs.on("Identified", function() {
+        //wait for obs to add the css variables
+
+      obs.call("GetInputSettings", {
+          inputName: 'Monitor Boundary'
+        }).then((data) => {
+          monitorsBoundary = JSON.parse(`{${data.inputSettings.text}}`);
+        });
+      });
+      
+      obs.on("InputSettingsChanged", async function (event) {
+        switch (event.inputName) {
+          case 'MouseHotKey':
+            mousePressed(event.inputSettings.text); 
+            break;
+            case 'Mapped Mouse Location':
+              const mousePosition = event.inputSettings.text.split(" ");
+              originalMouseX = Number(mousePosition[0]);      
+              originalMouseY = Number(mousePosition[1]);
+
+              mousePosX = Math.round(map(Number(mousePosition[0]), monitorsBoundary.MinX, monitorsBoundary.MaxX, 0, window.innerWidth));
+              mousePosY = Math.round(map(Number(mousePosition[1]), monitorsBoundary.MinY, monitorsBoundary.MaxY, 0, window.innerHeight));
+              // if (isMacOS()) {
+              //   // Perform macOS-specific mouse position adjustments
+              //   mousePosY = Math.round(map(Number(mousePosition[1]), monitorsBoundary.MaxY, monitorsBoundary.MinY, 0, window.height));
+              // } else {
+              //   mousePosY = Math.round(map(Number(mousePosition[1]), monitorsBoundary.MinY, monitorsBoundary.MaxY, 0, window.height));
+              // }
+              break;
+              default:
+                break;
+              }
+            })   
+          
+      function isMacOS() {
+        return navigator.userAgent.indexOf('Mac') !== -1;
+      }
+    </script>
+    <script src="lib/p5.js"></script>
+    <script src="lib/magicWandMouse_Sketch.js"></script>
+    <script src="lib/magicWandMouse_Class.js"></script>
+    <script ID="">
+    </script>
+  </body>
+</html>
