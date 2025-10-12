@@ -20,15 +20,15 @@
 
     <script id="p5 canvas">
         let monitors;
-        let monitorsBoundary = { x: 0, y: 0, width: 0, height: 0};
+        let sketchMonitors;
+        let sourceBackgroundRectangle;
         let originalMouseX = 0, originalMouseY = 0;
         let mousePosX = 0, mousePosY = 0;
         let sketchMousePosX = 0, sketchMousePosY = 0;
 
-
         function setup() {
             createCanvas(500, 400);
-            monitors = new Monitors();   
+            monitors = new Monitors();  
             // obsDisplays = new ObsDisplays();
             // monitors.updateOBS();
         }
@@ -51,8 +51,6 @@
             text(`${monitors.viewport.top}`, 200, 0);
             text(`${monitors.viewport.bottom}`, 200, 220);
             
-
-
             //mouse position circle
             fill(0, 0, 255);
             // monitors.monitorsBoundary
@@ -64,7 +62,7 @@
             ellipse(sketchMousePosX, sketchMousePosY, 10, 10);
             
             monitors.display();
-            monitors.updatePosition();
+            // monitors.update();
         }
 
     </script>
@@ -75,9 +73,16 @@
                 //system properties
                 this.sceneName = "displayCapture"; 
                 this.sourceName = "macOS Screen Capture";   
-                this.boundary = this.getMonitorsBoundary();
+                this.sourceId = Number(collection.scenes.displayCapture[mainMonitor].sceneItemId);
+                this.mainDisplay = "unknown";
                 this.displays = this.getDisplays()
-                console.log("monitors boundary", this.boundary);
+                this.boundary = this.getMonitorsBoundary();
+                
+                // if macOS, swap y axis
+                if(isMacOS()){
+                    this.swapDisplayY();
+                }
+                
                 //share boundary with obs
                 obs.call("SetInputSettings", {
                     inputName: 'Monitor Boundary',
@@ -102,39 +107,37 @@
                 
                 //sketchViewport
                 this.viewport = {x: 0, y: 0, width: 400, height: 225, left: 0 , right: 400, top: 0, bottom: 225};
-                this.mouseRadius = 10; 
+                this.moving = false
+
             }
             
             //find the boundary of all monitors in the display capture scene
             getMonitorsBoundary(){
-                let minX = 0;
-                let maxX = 0;
-                let minY = 0;
-                let maxY = 0;
-                let width = 0;
-                let height = 0;
+                let minX = this.mainDisplay.monitorPositionX;
+                let maxX = this.mainDisplay.monitorPositionX + this.mainDisplay.monitorWidth;
+                let minY = this.mainDisplay.monitorPositionY;
+                let maxY = this.mainDisplay.monitorPositionY + this.mainDisplay.monitorHeight;
+                let width = this.mainDisplay.monitorWidth;
+                let height = this.mainDisplay.monitorHeight;
             
-                Object.values(collection.scenes['displayCapture']).forEach((value) => {
-                     if(typeof value === 'object'){
-                        const display = value.inputSettings;
-                        //convert monitors sketch scale
-                        if(display.monitorPositionX < minX){
-                            minX = display.monitorPositionX;
-                        }
-                        if(display.monitorPositionX + display.monitorWidth > maxX){
-                            maxX = display.monitorPositionX + display.monitorWidth;
-                        }
-                        if(display.monitorPositionY < 0){
-                            minY = display.monitorPositionY;
-                        }
-                        if(display.monitorPositionY + display.monitorHeight > maxY){
-                            maxY = display.monitorPositionY + display.monitorHeight;
-                        }
+                this.displays.forEach((display) => {
+                     console.log("Displays ",display);
+                    //convert monitors sketch scale
+                    if(display.x < minX){
+                        minX = display.x;
+                    }
+                    if(display.x + display.width > maxX){
+                        maxX = display.x + display.width;
+                    }
+                    if(display.y < minY){
+                        minY = display.y;
+                    }
+                    if(display.y + display.height > maxY){
+                        maxY = display.y + display.height;
                     }
                 });
-                height = (maxY - minY);
+                height = maxY - minY;
                 width = maxX - minX;
-                
             
                 return {
                     width: width, 
@@ -154,7 +157,8 @@
                 Object.values(collection.scenes['displayCapture']).forEach((value) => {
                     if(typeof value === 'object'){
                         const m = value.inputSettings; 
-                        displays.push({           
+                        displays.push({
+                            
                             name: value.sourceName,
                             displayName: m.displayName,
                             x: m.monitorPositionX,
@@ -163,23 +167,61 @@
                             height: m.monitorHeight,
                             sceneItemId: Number(value.sceneItemId)
                         });
-
-                        if(isMacOS){
-                            //swap y axis for macOS
-                            //get rectangle upper left corner y position
-                            const index = displays.length - 1;
-                            displays[index].y = m.monitorPositionY + m.monitorHeight;
-                            //map y position from cartesian to screen coordinates
-                            displays[index].y = map(displays[index].y, this.boundary.maxY, this.boundary.minY, this.boundary.minY, this.boundary.maxY);
+                        //identify main display
+                        if(m.displayName.endsWith("0,0")){
+                            console.log("monitor", m.displayName.endsWith("0,0"));
+                            this.mainDisplay = m;
                         }
                     }
                 });
-                console.log("displays", JSON.stringify(displays));
-                console.log("displays", displays);
                 return displays;
             }
             
-            //map displays to sketch scale
+            swapDisplayY(){
+                // this.mainDisplay.monitorPositionY = map(this.mainDisplay.monitorPositionY, this.boundary.minY, this.boundary.maxY, this.boundary.minY, this.boundary.height);
+                //place main display relative to monitors boundary
+                
+                this.displays.forEach((display, index) => {
+                    console.log(this.mainDisplay.monitorPositionY)
+                    console.log("Before swap", display, index);
+                    
+                    if(display.displayName === this.mainDisplay.displayName){
+                        console.log("Main display found", display);
+                        // this.displays[index].y = this.boundary.height - display.height;
+                        // this.mainDisplay.monitorPositionY = this.boundary.height - display.height;
+                        return;
+                    }
+                    
+                    switch(this.mainDisplay.displayName !== display.displayName){
+                        case ((display.y + display.height) === this.mainDisplay.monitorPositionY):
+                            //display is beside main display
+                            console.log("Beside main display")
+                            this.displays[index].y = this.mainDisplay.monitorPositionY;
+                            break;
+                        case (display.y < this.mainDisplay.height && (display.y + this.mainDisplay.monitorHeight) < 0): {
+                            //display is below main display
+                            console.log("Below main display")
+                            this.displays[index].y = this.mainDisplay.monitorHeight - (display.y + display.height);
+                            break
+                        }
+                        case (display.y < this.mainDisplay.monitorHeight && (display.y + this.mainDisplay.monitorHeight) > 0): {
+                            //display is overlapping main display
+                            console.log("Overlapping main display")
+                            this.displays[index].y = this.mainDisplay.monitorHeight - (display.y + display.height);
+                            break;
+                        }
+                        case (display.y >= this.mainDisplay.monitorHeight): {
+                            //display is above main display
+                            console.log("Above main display")   
+                            this.displays[index].y = (-1 * ((display.y - this.mainDisplay.monitorHeight) + display.height)) + display.height;
+                            break
+                            }
+                    }
+                });
+            }   
+
+
+            //get the displays in the display capture scene
             getSketchDisplays(){
                 const sketchDisplays = [];
                 this.displays.forEach((key) => {
@@ -195,25 +237,46 @@
                 return sketchDisplays;
             }            
 
+
             getOverlays(){
                 const overlays = [];
-                Object.values(collection.scenes['Mouse_Overlay']).forEach((value) => {
-                    if(typeof value === 'object'){
-                        const o = value.inputSettings; 
-                        overlays.push({           
-                            name: value.sourceName,
+                if(mouseOverlayNames.length > 0){
+                    mouseOverlayNames.forEach((key, index) => {
+                        console.log("overlay", key);
+                        const source = collection.scenes.Mouse_Overlay[key];
+                        overlays.push({
+                            name: source.sourceName,
                             x: 0,
                             y: 0,
-                            width: o.width,
-                            height: o.height,
-                            sceneItemId: Number(value.sceneItemId)
+                            sourceWidth: source.inputSettings.width,
+                            sourceHeight: source.inputSettings.width * this.boundary.ratio,
+                            sceneItemId: Number(source.sceneItemId)
                         });
-                    }
-                });
-                return overlays;        
+
+                        //set initial overlay size to match display capture size
+                        obs.call("SetInputSettings", {
+                            inputName: overlays[index].name,
+                            inputSettings: {
+                                width: overlays[index].sourceWidth, 
+                                height: overlays[index].sourceHeight,
+                            }
+                        });
+
+                        obs.call("SetSceneItemTransform", {
+                            sceneName: "Mouse_Overlay", //this.sceneName,
+                            sceneItemId: overlays[index].sceneItemId,
+                            sceneItemTransform: {
+                                "positionX": this.obsBoundary.x,
+                                "positionY": this.obsBoundary.y,
+                                "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                                "boundsWidth": map(overlays[index].sourceWidth, 0, overlays[index].sourceWidth, 0, this.obsBoundary.width),
+                                "boundsHeight": map(overlays[index].sourceHeight, 0, overlays[index].sourceHeight, 0, this.obsBoundary.height),
+                          }
+                        })
+                    });
+                }
+                return overlays;
             }
-
-
 
             display() {
                 //map xy to sketch scale
@@ -222,14 +285,13 @@
                 rect(this.sketchBoundary.x, this.sketchBoundary.y, this.sketchBoundary.width, this.sketchBoundary.height);
                 fill(0,255,0,50);
                 stroke(0,255,0);
+                // rect(this.mainDisplay.monitorPositionX + this.sketchBoundary.x, this.mainDisplay.monitorPositionY + this.sketchBoundary.y, this.mainDisplay.monitorWidth, this.mainDisplay.monitorHeight);
                 this.sketchDisplays.forEach((display) => {
-                    // const x = map(display.x, this.boundary.minX, this.boundary.maxX, 0, this.sketchBoundary.width);
-                    // const y = map(display.y, this.boundary.minY, this.boundary.maxY, 0, this.sketchBoundary.height);
-                    // console.log("display x", x);
+
                     // console.log("display", display);
                     fill(0, 255, 0, 50);
                     stroke(0, 255, 0);
-                    rect(display.x * this.zoom, display.y * this.zoom , display.width * this.zoom, display.height * this.zoom);
+                    rect(display.x + this.sketchBoundary.x, display.y + this.sketchBoundary.y, display.width, display.height);
                     stroke(0, 0, 0);
                     // fill(255, 0, 0, 100);
                     // text(`x:${Math.round(display.x)}, y:${Math.round(display.y)}`, display.x + 10, display.y + 20);
@@ -238,74 +300,62 @@
                 text(`x:${Math.round(this.sketchDisplays[0].x)}, y:${Math.round(this.sketchDisplays[0].y)}`, 100, 100);
             }
             
-            updatePosition() {                                          
-                const moveSpeed = 30
+            update() {                                          
+                const moveSpeed = 5
                 if(((sketchMousePosX + moveSpeed > this.viewport.right) || (sketchMousePosX - moveSpeed< this.viewport.left)) 
-                || ((sketchMousePosY - moveSpeed < this.viewport.top) || (sketchMousePosY + moveSpeed > this.viewport.bottom))
-                ){ 
+                || ((sketchMousePosY - moveSpeed < this.viewport.top) || (sketchMousePosY + moveSpeed > this.viewport.bottom))){
+                    
+                    // console.log("move source")
                     //Set mouseBoundary variables l,r,t,b
                     //check if mouse is near edge X, Y
-                    //add clamp to prevent moving beyond monitor boundary
-                    if(sketchMousePosX + this.mouseRadius <= this.viewport.left && (this.sketchBoundary.x <= 0)){
+                    if(sketchMousePosX + moveSpeed <= this.viewport.left && (this.sketchBoundary.x <= 0)){
                         console.log("move left")
                         this.sketchBoundary.x += moveSpeed;
                         this.obsBoundary.x += map(moveSpeed, 0, this.sketchBoundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();
                     }
-                    if(sketchMousePosX + this.mouseRadius >= this.viewport.right && (this.sketchBoundary.x + this.sketchBoundary.width) >= this.viewport.width){
+                    if(sketchMousePosX + moveSpeed >= this.viewport.right && (this.sketchBoundary.x + this.sketchBoundary.width) >= this.viewport.width){
                         console.log("move right")
                         this.sketchBoundary.x -= moveSpeed;
                         this.obsBoundary.x -= map(moveSpeed, 0, this.sketchBoundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();  
+       
                     }
-                    if(sketchMousePosY - this.mouseRadius <= this.viewport.top && (this.sketchBoundary.y <= 0)){
+                    if(sketchMousePosY - moveSpeed <= this.viewport.top && (this.sketchBoundary.y <= 0)){
                         console.log("move up")
                         this.sketchBoundary.y += moveSpeed;
                         this.obsBoundary.y += map(moveSpeed, 0, this.sketchBoundary.height, 0, this.obsBoundary.height);
                         this.updateOBS();
                     }
-                    if(sketchMousePosY + this.mouseRadius >= this.viewport.bottom && (this.sketchBoundary.y + this.sketchBoundary.height) >= this.viewport.height){
+                    if(sketchMousePosY + moveSpeed >= this.viewport.bottom && (this.sketchBoundary.y + this.sketchBoundary.height) >= this.viewport.height){
                         console.log("move down")
                         this.sketchBoundary.y -= moveSpeed;
                         this.obsBoundary.y -= map(moveSpeed, 0, this.sketchBoundary.height, 0, this.obsBoundary.height);
                         this.updateOBS();
                     }
-                    this.sketchDisplays.forEach((display, index) => {
-                    display.x = map(this.displays[index].x, this.boundary.minX, this.boundary.maxX, this.sketchBoundary.x, this.sketchBoundary.x + this.sketchBoundary.width);
-                    display.y = map(this.displays[index].y, this.boundary.minY, this.boundary.maxY, this.sketchBoundary.y, this.sketchBoundary.y + this.sketchBoundary.height);
-                    display.width = this.displays[index].width * this.scaleX;
-                    display.height = this.displays[index].height * this.scaleY;
-                }); 
                 }
             }
 
-            updateZoom(){
+            zoomUpdate(){
                 this.sketchBoundary.width = 400 * this.zoom;
-                this.sketchBoundary.height = ((400 * this.zoom) * this.boundary.ratio);
+                this.sketchBoundary.height = ((400 * this.zoom) * this.sketchBoundary.boundaryRatio);
                 this.obsBoundary.width = 1920 * this.zoom;
-                this.obsBoundary.height = ((1920 * this.zoom) * this.boundary.ratio);
-                this.scaleX = this.sketchBoundary.width / this.boundary.width;
-                this.scaleY = this.sketchBoundary.height / this.boundary.height;
-                //this.displays = this.getDisplays(this.sketchDisplays);  
+                this.obsBoundary.height = ((1920 * this.zoom) * this.sketchBoundary.boundaryRatio);
+                this.scaleX = this.sketchBoundary.width / this.sketchBoundary.boundaryWidth;
+                this.scaleY = this.sketchBoundary.height / this.sketchBoundary.boundaryHeight;
+                this.displays = this.getDisplays(this.displays);  
                 this.display();
                 this.updateOBS();
 
-                this.sketchDisplays.forEach((display, index) => {
-                    display.x = map(this.displays[index].x, this.boundary.minX, this.boundary.maxX, 0, this.sketchBoundary.width);
-                    display.y = map(this.displays[index].y, this.boundary.minY, this.boundary.maxY, 0, this.sketchBoundary.height);
-                    display.width = this.displays[index].width * this.scaleX;
-                    display.height = this.displays[index].height * this.scaleY;
-                }); 
-                
                 //update overlays
-                if(this.overlays.length > 0){
-                    this.overlays.forEach((overlay) => {
+                if(mouseOverlayNames.length > 0){
+                    mouseOverlayNames.forEach((overlay) => {
                         setSourceTransform("displayCapture", overlay.sceneItemId, {
-                            "positionX": map(originalMouseX, this.boundary.minX, this.boundary.maxX, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
-                            "positionY": map(originalMouseY, this.boundary.minY, this.boundary.maxY, this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y),
+                            "positionX": map(originalMouseX, this.boundary.boundaryMinX, this.monitorsBoundary.boundaryMaxX, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
+                            "positionY": map(originalMouseY, this.monitorsBoundary.boundaryMinY, this.monitorsBoundary.boundaryMaxY, this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y),
                             "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                            "boundsWidth": map(20, 0, this.sketchBoundary.width, 0, this.obsBoundary.width),
-                            "boundsHeight": map(20, 0, this.sketchBoundary.height, 0, this.obsBoundary.height),
+                            "boundsWidth": map(20, 0, this.boundary.boundaryWidth, 0, this.obsBoundary.width),
+                            "boundsHeight": map(20, 0, this.boundary.boundaryHeight, 0, this.obsBoundary.height),
                         });
                     });
                 }
@@ -316,35 +366,30 @@
                 // console.log("update obs map", map(this.mainY + this.boundary.y, this.boundary.y, this.boundary.y + this.boundary.height, 0, this.obsBoundary.height));
                 console.log("boundary", this.boundary);
                 console.log("obsBoundary", this.obsBoundary);   
+                // obs.call("SetSceneItemTransform", {
+                //     sceneName: "displayCapture", //this.sceneName,
+                //     sceneItemId: this.sourceId,
+                //     sceneItemTransform: {
+                //         "positionX": map(this.mainX + this.boundary.x, this.boundary.x, this.boundary.x + this.boundary.width, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
+                //         "positionY": map(this.mainY + this.boundary.y, this.boundary.y, this.boundary.y + this.boundary.height, + this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y) ,
+                //         "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                //         "boundsWidth": map(this.mainWidth, 0, this.boundary.width, 0, this.obsBoundary.width),
+                //         "boundsHeight": map(this.mainHeight, 0, this.boundary.height, 0, this.obsBoundary.height),
+                //     }
+                // });
                 
                 // console.log("update obs")   
-                this.sketchDisplays.forEach((display) => {
-                    console.log("update obs display", display);
+                this.displays.forEach((display) => {
                     obs.call("SetSceneItemTransform", {
-                        sceneName: "displayCapture",
-                        sceneItemId: Number(display.sceneItemId),
+                        sceneName: "displayCapture", //this.sceneName,
+                        sceneItemId: display.sceneItemId,
                         sceneItemTransform: {
-                            "positionX": map(display.x + this.sketchBoundary.x, this.sketchBoundary.x, this.sketchBoundary.x + this.sketchBoundary.width, this.obsBoundary.x, this.obsBoundary.x + this.obsBoundary.width),
-                            "positionY": map(display.y + this.sketchBoundary.y, this.sketchBoundary.y, this.sketchBoundary.y + this.sketchBoundary.height, this.obsBoundary.y, this.obsBoundary.y + this.obsBoundary.height),
+                            "positionX": map(display.x + this.boundary.x, this.boundary.x, this.boundary.x + this.boundary.width, this.obsBoundary.x, this.obsBoundary.x + this.obsBoundary.width),
+                            "positionY": map(display.y + this.boundary.y, this.boundary.y, this.boundary.y + this.boundary.height, this.obsBoundary.y, this.obsBoundary.y + this.obsBoundary.height),
                             "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                            "boundsWidth": map(display.width, 0, this.sketchBoundary.width, 0, this.obsBoundary.width),
-                            "boundsHeight": map(display.height, 0, this.sketchBoundary.height, 0, this.obsBoundary.height),
+                            "boundsWidth": map(display.width, 0, this.boundary.width, 0, this.obsBoundary.width),
+                            "boundsHeight": map(display.height, 0, this.boundary.height, 0, this.obsBoundary.height),
                         }
-                    })
-                });
-                    
-                //update overlays
-                this.overlays.forEach((overlay, index) => {
-                    obs.call("SetSceneItemTransform", {
-                        sceneName: "Mouse_Overlay", //this.sceneName,
-                        sceneItemId: overlay.sceneItemId,
-                        sceneItemTransform: {
-                            "positionX": overlay.x,
-                            "positionY": overlay.y,
-                            "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                            "boundsWidth": map(overlay.width, 0, overlay.width, 0, this.obsBoundary.width),
-                            "boundsHeight": map(overlay.height, 0, overlay.height, 0, this.obsBoundary.height),
-                        } 
                     })
                 });
             }
@@ -354,8 +399,10 @@
     <script id="OBS Initialization">
         let mouseX,
         mouseY,
-        displayCaptureSceneName,
-        mouseOverlaySceneName;
+        mouseOverlayNames;
+
+        let mainMonitor={};
+        let otherMonitors = [];
  
         //set hotkey variables
         obs.on("Identified", async (data) => {
@@ -372,20 +419,29 @@
                 zoomOut_HK = hotkeys.zoomOut_HK;
             });
             
-            
+            //set display capture source name
+            displayCaptureScene = getComputedStyle(document.body).getPropertyValue('--display-capture-scene-name');
+            displayCaptureSourceId = getComputedStyle(document.body).getPropertyValue('--display-capture-source-name');
+                        
             obs.call("SetInputSettings", {
                 inputName: 'keyHotkey',
                 inputSettings: {
                     text: fullScreen_HK,
                 }
             });
-            
+
             setTimeout(async () => {
                 //OBS adds css after page load, so wait a moment
                 //get display info from obs css variables
-                displayCaptureSceneName = getComputedStyle(document.body).getPropertyValue('--display-capture-scene-name');
-                mouseOverlaySceneName = getComputedStyle(document.body).getPropertyValue('--mouse-overlay-scene-name');
+                mainMonitor = getComputedStyle(document.body).getPropertyValue('--main-display-capture');
+                //if tracking multiple monitors, get other monitor names
+                if(getComputedStyle(document.body).getPropertyValue('--display-capture-source-name').trim() !== ''){
+                    otherMonitors = JSON.parse(getComputedStyle(document.body).getPropertyValue('--display-capture-source-name'));
+                }
 
+                //if using mouse overlays, get overlay names
+                mouseOverlayNames = JSON.parse(getComputedStyle(document.body).getPropertyValue('--overlay-names'));  
+               
                 //obsCollection.js functions 
                 await getDisplayItems();
                 const collectionStatus = await getOBScollection()
@@ -482,13 +538,13 @@
                         // toggleSource('scene|||Screen Share','Input Hotkeys')
                         break;
                     case zoomIn_HK:
-                        monitors.zoom += 0.1;
-                        monitors.updateZoom();
+                        sketchMonitors.zoom += 0.2;
+                        sketchMonitors.zoomUpdate();
                         break;
                     case zoomOut_HK:
-                        if(monitors.zoom > 0.4){
-                            monitors.zoom -= 0.1;
-                            monitors.updateZoom();
+                        if(sketchMonitors.zoom > 0.4){
+                            sketchMonitors.zoom -= 0.2;
+                            sketchMonitors.zoomUpdate();
                         }
                         // toggleSource('scene|||Screen Share','Input Hotkeys')
                         break;
