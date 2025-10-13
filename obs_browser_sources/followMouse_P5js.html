@@ -61,7 +61,7 @@
             sketchMousePosY = Math.round(map(mousePosY,monitors.boundary.minY, monitors.boundary.maxY, monitors.sketchBoundary.y, monitors.sketchBoundary.height + monitors.sketchBoundary.y));
             
             text(`Sketch Mouse x:${sketchMousePosX}, y:${sketchMousePosY}`, 0, 40);
-            ellipse(sketchMousePosX, sketchMousePosY, 10, 10);
+            ellipse(sketchMousePosX, sketchMousePosY, monitors.mouseRadius, monitors.mouseRadius);
             
             monitors.display();
             monitors.updatePosition();
@@ -98,11 +98,12 @@
                 this.scaleY = this.sketchBoundary.height / this.boundary.height;
                 this.obsBoundary = { x: 0, y: 0, width: 1920 * this.zoom, height: ((1920 * this.zoom) * this.boundary.ratio)}
                 this.sketchDisplays = this.getSketchDisplays(); 
+                console.log(JSON.stringify(this.sketchDisplays))
                 this.overlays = this.getOverlays(); 
                 
                 //sketchViewport
                 this.viewport = {x: 0, y: 0, width: 400, height: 225, left: 0 , right: 400, top: 0, bottom: 225};
-                this.mouseRadius = 10; 
+                this.mouseRadius = 50; 
             }
             
             //find the boundary of all monitors in the display capture scene
@@ -239,46 +240,96 @@
             }
             
             updatePosition() {                                          
-                const moveSpeed = 30
-                if(((sketchMousePosX + moveSpeed > this.viewport.right) || (sketchMousePosX - moveSpeed< this.viewport.left)) 
-                || ((sketchMousePosY - moveSpeed < this.viewport.top) || (sketchMousePosY + moveSpeed > this.viewport.bottom))
+                const moveSpeed = 50
+                if(((sketchMousePosX + this.mouseRadius > this.viewport.right) || (sketchMousePosX - this.mouseRadius < this.viewport.left)) 
+                || ((sketchMousePosY - this.mouseRadius < this.viewport.top) || (sketchMousePosY + this.mouseRadius > this.viewport.bottom))
                 ){ 
-                    //Set mouseBoundary variables l,r,t,b
-                    //check if mouse is near edge X, Y
-                    //add clamp to prevent moving beyond monitor boundary
-                    if(sketchMousePosX + this.mouseRadius <= this.viewport.left && (this.sketchBoundary.x <= 0)){
+                    if(sketchMousePosX - this.mouseRadius/2 <= this.viewport.left && (this.sketchBoundary.x) <= 0){
                         console.log("move left")
-                        this.sketchBoundary.x += moveSpeed;
-                        this.obsBoundary.x += map(moveSpeed, 0, this.sketchBoundary.width, 0, this.obsBoundary.width);
-                        this.updateOBS();
-                    }
-                    if(sketchMousePosX + this.mouseRadius >= this.viewport.right && (this.sketchBoundary.x + this.sketchBoundary.width) >= this.viewport.width){
-                        console.log("move right")
-                        this.sketchBoundary.x -= moveSpeed;
-                        this.obsBoundary.x -= map(moveSpeed, 0, this.sketchBoundary.width, 0, this.obsBoundary.width);
+
+                        if(sketchMousePosX < this.viewport.left){
+                            this.sketchBoundary.x = sketchMousePosX;
+                        } else {
+                            this.sketchBoundary.x += moveSpeed/2;
+                        }
+                        
+                        this.sketchBoundary.x = constrain(this.sketchBoundary.x, this.viewport.width - this.sketchBoundary.width, 0)
+
+                        this.updateSketchDisplays()
+                        
+                        this.obsBoundary.x = map(this.sketchBoundary.x, this.sketchBoundary.x, this.sketchBoundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();  
+                        return
                     }
-                    if(sketchMousePosY - this.mouseRadius <= this.viewport.top && (this.sketchBoundary.y <= 0)){
+
+                    if(sketchMousePosX + this.mouseRadius >= this.viewport.right && (this.sketchBoundary.x) <= 0){
+                        console.log("move right")
+
+                        if(sketchMousePosX > this.viewport.right){
+                            this.sketchBoundary.x = -sketchMousePosX;
+                        } else {
+                            this.sketchBoundary.x -= moveSpeed;
+                        }
+
+                        this.sketchBoundary.x = constrain(this.sketchBoundary.x, this.viewport.width - this.sketchBoundary.width, 0)
+
+                        this.updateSketchDisplays()
+                        
+                        this.obsBoundary.x = map(this.sketchBoundary.x, this.sketchBoundary.x, this.sketchBoundary.width, 0, this.obsBoundary.width);
+                        this.updateOBS();  
+                        return
+                    }
+
+                    if(sketchMousePosY - this.mouseRadius <= this.viewport.top && (this.sketchBoundary.y) <= 0){
                         console.log("move up")
-                        this.sketchBoundary.y += moveSpeed;
-                        this.obsBoundary.y += map(moveSpeed, 0, this.sketchBoundary.height, 0, this.obsBoundary.height);
-                        this.updateOBS();
+
+                        if(sketchMousePosY < this.viewport.top){
+                            this.sketchBoundary.y = sketchMousePosY;
+                        } else {
+                            this.sketchBoundary.y += moveSpeed;
+                        }
+                        
+                        this.sketchBoundary.y = constrain(this.sketchBoundary.y, this.viewport.height - this.sketchBoundary.height, 0)
+
+                        this.updateSketchDisplays()
+                        
+                        this.obsBoundary.y = map(this.sketchBoundary.y, this.sketchBoundary.y, this.sketchBoundary.height, 0, this.obsBoundary.height);
+                        this.updateOBS();  
+                        return
                     }
-                    if(sketchMousePosY + this.mouseRadius >= this.viewport.bottom && (this.sketchBoundary.y + this.sketchBoundary.height) >= this.viewport.height){
+
+                    if(sketchMousePosY + this.mouseRadius >= this.viewport.bottom && (this.sketchBoundary.y) <= 0){
                         console.log("move down")
-                        this.sketchBoundary.y -= moveSpeed;
-                        this.obsBoundary.y -= map(moveSpeed, 0, this.sketchBoundary.height, 0, this.obsBoundary.height);
-                        this.updateOBS();
+
+                        if(sketchMousePosY > this.viewport.bottom){
+                            this.sketchBoundary.y = -sketchMousePosY;
+                        } else {
+                            this.sketchBoundary.y -= moveSpeed;
+                        }
+
+                        this.sketchBoundary.y = constrain(this.sketchBoundary.y, this.viewport.height - this.sketchBoundary.height, 0)
+
+                        this.updateSketchDisplays()
+                        
+                        this.obsBoundary.y = map(this.sketchBoundary.y, this.sketchBoundary.y, this.sketchBoundary.height, 0, this.obsBoundary.height);
+                        this.updateOBS();  
+                        return
                     }
-                    this.sketchDisplays.forEach((display, index) => {
+
+
+            }
+        }
+
+            updateSketchDisplays(){
+                this.sketchDisplays.forEach((display, index) => {
+                    console.log(this.displays[index].y, this.boundary.minY, this.boundary.maxY, this.sketchBoundary.y, this.sketchBoundary.y + this.sketchBoundary.height)
                     display.x = map(this.displays[index].x, this.boundary.minX, this.boundary.maxX, this.sketchBoundary.x, this.sketchBoundary.x + this.sketchBoundary.width);
                     display.y = map(this.displays[index].y, this.boundary.minY, this.boundary.maxY, this.sketchBoundary.y, this.sketchBoundary.y + this.sketchBoundary.height);
                     display.width = this.displays[index].width * this.scaleX;
                     display.height = this.displays[index].height * this.scaleY;
-                }); 
-                }
+                })
             }
-
+            
             updateZoom(){
                 this.sketchBoundary.width = 400 * this.zoom;
                 this.sketchBoundary.height = ((400 * this.zoom) * this.boundary.ratio);
@@ -291,24 +342,24 @@
                 this.updateOBS();
 
                 this.sketchDisplays.forEach((display, index) => {
-                    display.x = map(this.displays[index].x, this.boundary.minX, this.boundary.maxX, 0, this.sketchBoundary.width);
-                    display.y = map(this.displays[index].y, this.boundary.minY, this.boundary.maxY, 0, this.sketchBoundary.height);
+                    display.x = map(this.displays[index].x, this.boundary.minX, this.boundary.maxX, this.sketchBoundary.x, this.sketchBoundary.width);
+                    display.y = map(this.displays[index].y, this.boundary.minY, this.boundary.maxY, this.sketchBoundary.y, this.sketchBoundary.height);
                     display.width = this.displays[index].width * this.scaleX;
                     display.height = this.displays[index].height * this.scaleY;
                 }); 
                 
-                //update overlays
-                if(this.overlays.length > 0){
-                    this.overlays.forEach((overlay) => {
-                        setSourceTransform("displayCapture", overlay.sceneItemId, {
-                            "positionX": map(originalMouseX, this.boundary.minX, this.boundary.maxX, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
-                            "positionY": map(originalMouseY, this.boundary.minY, this.boundary.maxY, this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y),
-                            "boundsType": "OBS_BOUNDS_SCALE_INNER",
-                            "boundsWidth": map(20, 0, this.sketchBoundary.width, 0, this.obsBoundary.width),
-                            "boundsHeight": map(20, 0, this.sketchBoundary.height, 0, this.obsBoundary.height),
-                        });
-                    });
-                }
+                // //update overlays
+                // if(this.overlays.length > 0){
+                //     this.overlays.forEach((overlay) => {
+                //         setSourceTransform("displayCapture", overlay.sceneItemId, {
+                //             "positionX": map(originalMouseX, this.boundary.minX, this.boundary.maxX, this.obsBoundary.x, this.obsBoundary.width + this.obsBoundary.x),
+                //             "positionY": map(originalMouseY, this.boundary.minY, this.boundary.maxY, this.obsBoundary.y, this.obsBoundary.height + this.obsBoundary.y),
+                //             "boundsType": "OBS_BOUNDS_SCALE_INNER",
+                //             "boundsWidth": map(20, 0, this.sketchBoundary.width, 0, this.obsBoundary.width),
+                //             "boundsHeight": map(20, 0, this.sketchBoundary.height, 0, this.obsBoundary.height),
+                //         });
+                //     });
+                // }
             }
 
             updateOBS() {
@@ -319,7 +370,7 @@
                 
                 // console.log("update obs")   
                 this.sketchDisplays.forEach((display) => {
-                    console.log("update obs display", display);
+                    console.log("update obs display", JSON.stringify(display));
                     obs.call("SetSceneItemTransform", {
                         sceneName: "displayCapture",
                         sceneItemId: Number(display.sceneItemId),
@@ -347,6 +398,18 @@
                         } 
                     })
                 });
+
+                //print sketch boundary
+                        obs.call("SetInputSettings", {
+            inputName: 'zoomDisplay',
+            inputSettings: {
+                text: `${sketchMousePosX} ${sketchMousePosY}
+${this.viewport.top} ${this.viewport.left} ${this.viewport.right} ${this.viewport.bottom}
+${this.sketchBoundary.x} ${this.sketchBoundary.y} ${this.sketchBoundary.width} ${this.sketchBoundary.height}
+${this.zoom}}
+`,
+            }
+        });
             }
         }
     </script>
@@ -482,14 +545,12 @@
                         // toggleSource('scene|||Screen Share','Input Hotkeys')
                         break;
                     case zoomIn_HK:
-                        monitors.zoom += 0.1;
+                        monitors.zoom = constrain(monitors.zoom + 1, 1, 5);
                         monitors.updateZoom();
                         break;
-                    case zoomOut_HK:
-                        if(monitors.zoom > 0.4){
-                            monitors.zoom -= 0.1;
-                            monitors.updateZoom();
-                        }
+                        case zoomOut_HK:
+                        monitors.zoom = constrain(monitors.zoom - 1, 1, 5);
+                        monitors.updateZoom();
                         // toggleSource('scene|||Screen Share','Input Hotkeys')
                         break;
                         default:
