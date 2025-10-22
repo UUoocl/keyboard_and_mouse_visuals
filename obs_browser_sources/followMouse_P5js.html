@@ -228,8 +228,6 @@
                 return overlays;        
             }
 
-
-
             display() {
                 //map xy to sketch scale
                 fill(0,0,255,50);
@@ -273,7 +271,7 @@
                         
                         this.obsBoundary.x = map(this.sketchBoundary.x, this.sketchBoundary.x, this.sketchBoundary.width, 0, this.obsBoundary.width);
                         this.updateOBS();  
-                        return
+                        // return
                     }
 
                     if(relativeSketchMousePosX + this.mouseRadius >= this.viewport.right && (this.sketchBoundary.x) <= 0){
@@ -329,6 +327,7 @@
                         this.updateOBS();  
                         // return
                     }
+
             }
         }
 
@@ -401,8 +400,8 @@
                         sceneName: "Mouse_Overlay", //this.sceneName,
                         sceneItemId: overlay.sceneItemId,
                         sceneItemTransform: {
-                            "positionX": overlay.x,
-                            "positionY": overlay.y,
+                            "positionX": map(this.sketchBoundary.x, this.sketchBoundary.x, this.sketchBoundary.x + this.sketchBoundary.width, this.obsBoundary.x, this.obsBoundary.x + this.obsBoundary.width),
+                            "positionY": map(this.sketchBoundary.y, this.sketchBoundary.y, this.sketchBoundary.y + this.sketchBoundary.height, this.obsBoundary.y, this.obsBoundary.y + this.obsBoundary.height),
                             "boundsType": "OBS_BOUNDS_SCALE_INNER",
                             "boundsWidth": map(overlay.width, 0, overlay.width, 0, this.obsBoundary.width),
                             "boundsHeight": map(overlay.height, 0, overlay.height, 0, this.obsBoundary.height),
@@ -506,7 +505,6 @@ ${this.zoom}}
                 console.error(`Error loading script ${src}.`);
             };
         }
-
         </script>
 
     <script id="obsInputRouter">

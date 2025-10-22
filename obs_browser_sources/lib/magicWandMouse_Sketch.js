@@ -39,7 +39,7 @@ function mouseDragged() {
 function mousePressed(mouseButton) {
   let num = random(20, 50);
   let fillColor = [255,0,255]
-  if(mouseButton !== 'MB17'){fillColor = [129, 210, 235]}
+  if(mouseButton !== 'MB1'){fillColor = [129, 210, 235]}
   for (let i=0; i<num; i++) {
     let velocity = p5.Vector.random2D().mult(random(2, 5));
     stars.push(new Star(mousePosX, mousePosY, velocity.x, velocity.y,fillColor));

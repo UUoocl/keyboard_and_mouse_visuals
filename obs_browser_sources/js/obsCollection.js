@@ -40,6 +40,7 @@ async function getOBScollection() {
                 const sourceSettings = await obs.call("GetInputSettings", { inputName: sources.sceneItems[source].sourceName })
                 //if input kind  == "screen_capture" get special settings
                 if (sourceSettings.inputKind === "screen_capture") {
+                    console.log(JSON.stringify(sourceSettings))
                     sourceSettings.inputSettings.displayName = displayItems[sourceSettings.inputSettings.display_uuid]?.itemName || "Unknown Display @ -0,-0";
                     sourceSettings.inputSettings.monitorPositionX = Number(sourceSettings.inputSettings.displayName.split(" @ ")[1].split(",")[0]);
                     sourceSettings.inputSettings.monitorPositionY = Number(sourceSettings.inputSettings.displayName.split(" @ ")[1].split(",")[1]);
