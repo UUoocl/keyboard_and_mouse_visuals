@@ -1,3 +1,7 @@
+"""
+python-osc 
+"""
+
 import obspython as obs
 import json
 from pythonosc import udp_client
@@ -119,12 +123,6 @@ def script_properties(): #UI
         
     
     return props
-
-
-def script_unload():
-    global script_settings
-
-    print(f"script unload {obs.obs_data_get_json(script_settings)}")
 
 
 def client_count_callback(props, prop, settings):  # UI
@@ -296,3 +294,31 @@ def start_osc_server():
         except Exception as e:
             print(f"server could not start: {e}")
             server_running = True
+
+
+def script_unload():
+    global script_settings, server, server_thread, clients
+
+    print(f"script unload {obs.obs_data_get_json(script_settings)}")
+
+    #Remove Signal handlers
+    for client in clients:
+        #Remove Signal handler
+        try:
+            source_name = client["text_source_send_name"]
+            source = obs.obs_get_source_by_name(source_name)
+            if source:
+                handler = obs.obs_source_get_signal_handler(source)
+                obs.signal_handler_disconnect(handler, "update", source_signal_callback)
+                obs.obs_source_release(source)
+        except Exception as e:
+            print("no source signal to remove")
+
+    if server:
+        server.shutdown()
+        print("Stopping OSC server...")
+    if server_thread:
+        server_thread.join()
+        print("OSC server stopped.")
+    global server_running
+    server_running = False
